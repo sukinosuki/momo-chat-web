@@ -7,6 +7,7 @@ export type Student = {
   family_name: string
   id: number
   is_online: boolean
+  is_latest_login: boolean
   messages: Message[] | null
   unread_count: number
 

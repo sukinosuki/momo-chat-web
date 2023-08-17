@@ -115,7 +115,7 @@ const Login = () => {
 
   //
   const handleChooseStudent = async (student: Student) => {
-    if (student.is_online) return
+    if (student.is_online || student.is_latest_login) return
 
     setSelectedStudent(student)
     setChooseStudentModalVisible(false)
@@ -237,11 +237,12 @@ const Login = () => {
                   >
                     <motion.img
                       variants={{
-                        hover: student.is_online
-                          ? {}
-                          : {
-                              scale: 1.2,
-                            },
+                        hover:
+                          student.is_online || student.is_latest_login
+                            ? {}
+                            : {
+                                scale: 1.2,
+                              },
                       }}
                       className="w-full h-full object-cover"
                       src={`https://schale.gg/images/student/collection/${student.collection_texture}.webp`}
@@ -254,22 +255,26 @@ const Login = () => {
                     </div>
                     <motion.div
                       variants={{
-                        rest: student.is_online
-                          ? {}
-                          : {
-                              opacity: 0,
-                              scale: 1.2,
-                            },
-                        hover: student.is_online
-                          ? {}
-                          : {
-                              opacity: 1,
-                              scale: 1,
-                            },
+                        rest:
+                          student.is_online || student.is_latest_login
+                            ? {}
+                            : {
+                                opacity: 0,
+                                scale: 1.2,
+                              },
+                        hover:
+                          student.is_online || student.is_latest_login
+                            ? {}
+                            : {
+                                opacity: 1,
+                                scale: 1,
+                              },
                       }}
                       className="absolute w-full h-full top-0 left-0 text-sm text-white flex items-center justify-center bg-[#00000080]"
                     >
-                      {student.is_online ? '不可选择' : '选择学生'}
+                      {student.is_online || student.is_latest_login
+                        ? '不可选择'
+                        : '选择学生'}
                     </motion.div>
                   </motion.div>
                 </motion.div>

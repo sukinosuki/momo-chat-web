@@ -29,10 +29,11 @@ const MomoTalk = () => {
 
   const wsRef = useRef<WebSocket>(null)
   const authState = useSnapshot(authStore)
-  const [currentIndex, setCurrentIndex] = useState<number | null>(null)
-  // const [messages, setMessages] = useState<Message[]>([])
+  const [currentStudentId, setCurrentStudentId] = useState<number | null>(null)
   const [allStudent, setAllStudent] = useState<Student[]>([])
   const [stampModalVisible, setStampModalVisible] = useState(false)
+
+  const [studentsMap, setStudentMap] = useState<Record<number, Student>>({})
 
   const [isInit, setIsInit] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -40,31 +41,71 @@ const MomoTalk = () => {
   const lastMessageBoxRef = useRef<HTMLDivElement>(null)
 
   const currentStudent: Student | null = useMemo(() => {
-    if (currentIndex == null) {
+    if (currentStudentId == null) {
       _currentStudent = null
       return null
     }
 
-    _currentStudent = allStudent[currentIndex]
+    _currentStudent = studentsMap[currentStudentId]
 
-    return allStudent[currentIndex]
-  }, [allStudent, currentIndex])
+    return _currentStudent
+  }, [studentsMap, currentStudentId])
 
+  console.log('currentStudent ', currentStudent)
+
+  const totalUnreadMessageCount = useMemo(() => {
+    return allStudent.reduce((acc: number, next) => {
+      acc += next.unread_count
+      return acc
+    }, 0)
+  }, [allStudent])
+  //
   const fetchStudents = async () => {
     const [err, res] = await toCatch(api.student.all())
     if (err) return Promise.reject(err)
 
-    res.forEach((item) => {
-      item._messageLoadMoreStatus = null
-      item._messageLoadStatus = null
-      item.messages = []
-    })
+    // res.forEach((item) => {
+    //   item._messageLoadMoreStatus = null
+    //   item._messageLoadStatus = null
+    //   item.messages = []
+    // })
+    const _studentMap = res.reduce((acc: Record<number, Student>, next) => {
+      next._messageLoadMoreStatus = null
+      next._messageLoadStatus = null
+      next.messages = []
 
-    // const sorted = res.sort((item) => (item.is_online ? -1 : 1))
+      acc[next.id] = next
+
+      return acc
+    }, {})
+
+    // 排序, 在线和id最小的在前面
     const sorted = res.sort((s1, s2) => {
       return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
     })
-    setAllStudent(sorted)
+
+    const simpleList: any[] = sorted.map((item) => {
+      const { id, dev_name, family_name, collection_texture, unread_count, is_online } =
+        item
+
+      return {
+        id,
+        dev_name,
+        family_name,
+        collection_texture,
+        unread_count,
+        is_online,
+      }
+    })
+
+    // const _studentMap = sorted.reduce((acc: Record<number, Student>, next) => {
+    //   acc[next.id] = next
+
+    //   return acc
+    // }, {})
+
+    setAllStudent(simpleList)
+    setStudentMap(_studentMap)
 
     return Promise.resolve(res)
   }
@@ -83,27 +124,23 @@ const MomoTalk = () => {
       size: 50,
     }
     const [err, res] = await toCatch(api.chatMessage.all(params))
-    const index = allStudent.findIndex((s) => s.id === sid)
-    console.log('index ', index)
-    console.log('currentIndex ', currentIndex)
 
     if (err) {
-      setAllStudent((prev) =>
+      setStudentMap((prev) =>
         update(prev, {
-          [index]: {
+          [sid]: {
             _messageLoadStatus: {
               $set: PageStatus.FAILED,
             },
           },
         }),
       )
-      // TODO
       return
     }
 
-    setAllStudent((prev) =>
+    setStudentMap((prev) =>
       update(prev, {
-        [index]: {
+        [sid]: {
           _messageLoadStatus: {
             $set: PageStatus.LOADED,
           },
@@ -114,6 +151,7 @@ const MomoTalk = () => {
       }),
     )
 
+    // TODO: 如果当前学生和获取聊天记录时的学生不是同一个时
     lastMessageBoxRef.current?.scrollIntoView()
   }
 
@@ -131,7 +169,7 @@ const MomoTalk = () => {
     wsRef.current.onmessage = (e) => {
       console.log('[onmessage]', e.data)
       console.log('[onmessage] 当前用户 currentStudent ', _currentStudent)
-      console.log('[onmessage] 当前用户 currentIndex ', currentIndex)
+      console.log('[onmessage] 当前用户 currentStudentId ', currentStudentId)
       console.log('[onmessage] 当前用户 id', _currentStudent?.id)
       const message = JSON.parse(e.data) as Message
       console.log('[onmessage] message ', message)
@@ -146,22 +184,32 @@ const MomoTalk = () => {
           // const { type, message: msg, toSid, fromSid } = message
           if (message.from_sid === message.to_sid) return
 
-          const h1 =
-            chatMessagesBoxRef.current!.clientHeight +
-            chatMessagesBoxRef.current!.scrollTop
-          const h2 = chatMessagesBoxRef.current!.scrollHeight - 20
-          console.log('h1 ', h1)
-          console.log('h2 ', h2)
+          // const h1 =
+          //   chatMessagesBoxRef.current!.clientHeight +
+          //   chatMessagesBoxRef.current!.scrollTop
+          // const h2 = chatMessagesBoxRef.current!.scrollHeight - 20
+          // console.log('h1 ', h1)
+          // console.log('h2 ', h2)
 
-          const isAtBottom = h1 > h2
+          const isAtBottom =
+            chatMessagesBoxRef.current!.clientHeight +
+              chatMessagesBoxRef.current!.scrollTop >
+            chatMessagesBoxRef.current!.scrollHeight - 20
           // 清空当前未读
           if (message.from_sid === _currentStudent?.id) {
             sendRead(_currentStudent!.id)
           }
 
+          setStudentMap((prev) => {
+            return update(prev, {
+              [message.from_sid!]: {
+                messages: {
+                  $push: [message],
+                },
+              },
+            })
+          })
           setAllStudent((prev) => {
-            console.log('prev ', prev)
-
             const findIndex = prev.findIndex((item) => item.id === message.from_sid)
 
             console.log('findIndex ', findIndex)
@@ -169,13 +217,6 @@ const MomoTalk = () => {
 
             return update(prev, {
               [findIndex]: {
-                messages: prev[findIndex].messages
-                  ? {
-                      $push: [message],
-                    }
-                  : {
-                      $set: [message],
-                    },
                 unread_count: {
                   $set:
                     message.from_sid !== _currentStudent?.id
@@ -185,6 +226,32 @@ const MomoTalk = () => {
               },
             })
           })
+          // setAllStudent((prev) => {
+          //   console.log('prev ', prev)
+
+          //   const findIndex = prev.findIndex((item) => item.id === message.from_sid)
+
+          //   console.log('findIndex ', findIndex)
+          //   if (findIndex === -1) return prev
+
+          //   return update(prev, {
+          //     [findIndex]: {
+          //       messages: prev[findIndex].messages
+          //         ? {
+          //             $push: [message],
+          //           }
+          //         : {
+          //             $set: [message],
+          //           },
+          //       unread_count: {
+          //         $set:
+          //           message.from_sid !== _currentStudent?.id
+          //             ? prev[findIndex].unread_count + 1
+          //             : 0,
+          //       },
+          //     },
+          //   })
+          // })
           setTimeout(() => {
             // console.log('chatMessagesBoxRef ', chatMessagesBoxRef.current)
 
@@ -313,21 +380,30 @@ const MomoTalk = () => {
 
     wsRef.current?.send(JSON.stringify(message))
 
-    const findIndex = allStudent.findIndex((item) => item.id === currentStudent?.id)
+    // const findIndex = allStudent.findIndex((item) => item.id === currentStudent?.id)
 
-    setAllStudent((prev) => {
-      return update(prev, {
-        [findIndex]: {
-          messages: prev[findIndex].messages
-            ? {
-                $push: [message],
-              }
-            : {
-                $set: [message],
-              },
+    setStudentMap((prev) =>
+      update(prev, {
+        [currentStudentId!]: {
+          messages: {
+            $push: [message],
+          },
         },
-      })
-    })
+      }),
+    )
+    // setAllStudent((prev) => {
+    //   return update(prev, {
+    //     [findIndex]: {
+    //       messages: prev[findIndex].messages
+    //         ? {
+    //             $push: [message],
+    //           }
+    //         : {
+    //             $set: [message],
+    //           },
+    //     },
+    //   })
+    // })
     setTimeout(() => {
       lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, 100)
@@ -385,17 +461,18 @@ const MomoTalk = () => {
   useEffect(() => {
     console.log('[useEffect] 当前学生改变 sid ', currentStudent?.id)
     console.log('[useEffect] 当前学生改变 auth id', authState.user?.id)
-    if (!currentStudent || currentIndex === null) return
+    if (!currentStudent || currentStudentId === null) return
 
     if (currentStudent.unread_count > 0) {
       // 清空对应学生的未读消息
       sendRead(currentStudent.id)
     }
 
+    const index = allStudent.findIndex((item) => item.id === currentStudent.id)
     if (currentStudent._messageLoadStatus === null) {
       setAllStudent((prev) =>
         update(prev, {
-          [currentIndex]: {
+          [index]: {
             _messageLoadStatus: {
               $set: PageStatus.LOADING,
             },
@@ -413,7 +490,7 @@ const MomoTalk = () => {
 
       setAllStudent((prev) =>
         update(prev, {
-          [currentIndex]: {
+          [index]: {
             unread_count: {
               $set: 0,
             },
@@ -421,11 +498,7 @@ const MomoTalk = () => {
         }),
       )
     }
-  }, [currentIndex])
-
-  useEffect(() => {
-    if (currentIndex === null) return
-  }, [currentIndex])
+  }, [currentStudentId])
 
   useEffect(() => {
     init()
@@ -560,7 +633,9 @@ const MomoTalk = () => {
           >
             <div className="flex justify-between items-center px-4 bg-white h-[50px] font-[blueaka]">
               <div>
-                <span className="text-md font-bold">未读消息(TODO)</span>
+                <span className="text-md font-bold">
+                  未读消息({totalUnreadMessageCount})
+                </span>
               </div>
               <div>
                 <SkewButton
@@ -600,8 +675,8 @@ const MomoTalk = () => {
                     <StudentItem
                       student={student}
                       key={student.id}
-                      active={index === currentIndex}
-                      onClick={() => setCurrentIndex(index)}
+                      active={student.id === currentStudentId}
+                      onClick={() => setCurrentStudentId(student.id)}
                     ></StudentItem>
                   </Reorder.Item>
                 ))}
@@ -808,11 +883,12 @@ const MomoTalk = () => {
                       type="text"
                       onKeyPress={(e) => e.key === 'Enter' && handleSendTextMessage()}
                       ref={inputRef}
+                      maxLength={10}
                       className="w-full h-[40px] p-2 border-1 border-momo  rounded-md text-[12px] outline-none caret-momo"
                       placeholder="请输入"
                     />
                     <SkewButton
-                      className="bg-momo ml-4 px-3 py-2"
+                      className="bg-momo ml-4 px-3 py-2 flex-shrink-0"
                       onClick={handleSendTextMessage}
                     >
                       Send to {currentStudent.dev_name}
@@ -822,20 +898,22 @@ const MomoTalk = () => {
               </AnimatePresence>
             </div>
 
-            {currentIndex === null && (
+            {currentStudentId === null && (
               <div className="bg-white absolute w-full h-full left-0 top-0"></div>
             )}
 
             <AnimatePresence mode="wait">
               {currentStudent &&
-                currentStudent._messageLoadStatus === PageStatus.LOADING && (
+                [null, PageStatus.LOADING].includes(
+                  currentStudent._messageLoadStatus,
+                ) && (
                   <motion.div
                     key={currentStudent.id || 0}
                     // layoutId="underline"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="bg-white absolute w-full h-full left-0 top-0 flex items-center justify-center font-[blueaka]"
+                    className="bg-white absolute w-full h-full left-0 top-0 flex items-center justify-center font-[blueaka] z-50"
                   >
                     <span className="text-md">Loading</span>
                   </motion.div>
