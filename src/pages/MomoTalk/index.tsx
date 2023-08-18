@@ -1,14 +1,16 @@
 import { AnimatePresence, motion, Reorder } from 'framer-motion'
 import update from 'immutability-helper'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { BiMinus } from 'react-icons/bi'
 import { useSnapshot } from 'valtio'
 
 import api from '@/api'
 import { API_ChatMessage } from '@/api/chatMessage'
-import SideMenu from '@/components/SideMenu'
+import { BaFilter } from '@/components/icons'
 import SkewButton from '@/components/SkewButton'
 import StudentItem from '@/components/StudentItem'
 import icon from '@/icon.svg'
+import SideMenu from '@/pages/MomoTalk/components/SideMenu'
 import authStore from '@/store/authStore'
 import {
   Message,
@@ -21,19 +23,30 @@ import { Student } from '@/type/Student'
 import { sleep, toCatch } from '@/utils'
 
 let _currentStudent: Student | null = null
-
+let _isGroupChat = false
+let _isOne2OneChat = false
+let _currentStudentLock = false
+let _messageScrollTimer: number | null = null
 //
 const MomoTalk = () => {
-  // TODO
-  const wsUrl = 'ws://127.0.0.1:8080/ws'
-
   const wsRef = useRef<WebSocket>(null)
   const authState = useSnapshot(authStore)
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null)
   const [allStudent, setAllStudent] = useState<Student[]>([])
   const [stampModalVisible, setStampModalVisible] = useState(false)
 
-  const [studentsMap, setStudentMap] = useState<Record<number, Student>>({})
+  const [studentsChatMap, setStudentChatMap] = useState<Record<number, Student>>({})
+  const [groupMessages, setGroupMessages] = useState<Message[]>([])
+  const [studentListSideVisible, setStudentListSideVisible] = useState(true)
+
+  const [tabIndex, setTabIndex] = useState(0)
+
+  const [isGroupChat, isOne2OneChat] = useMemo(() => {
+    _isGroupChat = tabIndex === 1
+    _isOne2OneChat = tabIndex === 0
+
+    return [_isGroupChat, _isOne2OneChat]
+  }, [tabIndex])
 
   const [isInit, setIsInit] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,12 +59,12 @@ const MomoTalk = () => {
       return null
     }
 
-    _currentStudent = studentsMap[currentStudentId]
+    _currentStudent = studentsChatMap[currentStudentId]
 
     return _currentStudent
-  }, [studentsMap, currentStudentId])
+  }, [studentsChatMap, currentStudentId])
 
-  console.log('currentStudent ', currentStudent)
+  // console.log('currentStudent ', currentStudent)
 
   const totalUnreadMessageCount = useMemo(() => {
     return allStudent.reduce((acc: number, next) => {
@@ -59,6 +72,7 @@ const MomoTalk = () => {
       return acc
     }, 0)
   }, [allStudent])
+
   //
   const fetchStudents = async () => {
     const [err, res] = await toCatch(api.student.all())
@@ -105,14 +119,14 @@ const MomoTalk = () => {
     // }, {})
 
     setAllStudent(simpleList)
-    setStudentMap(_studentMap)
+    setStudentChatMap(_studentMap)
 
     return Promise.resolve(res)
   }
 
   //
   const fetchMessages = async (sid: number, messageId: number | null = null) => {
-    await sleep(1000)
+    // await sleep(2000)
 
     const sid_max = authState.user.id > sid ? authState.user.id : sid
     const sid_min = authState.user.id < sid ? authState.user.id : sid
@@ -126,7 +140,7 @@ const MomoTalk = () => {
     const [err, res] = await toCatch(api.chatMessage.all(params))
 
     if (err) {
-      setStudentMap((prev) =>
+      setStudentChatMap((prev) =>
         update(prev, {
           [sid]: {
             _messageLoadStatus: {
@@ -138,7 +152,7 @@ const MomoTalk = () => {
       return
     }
 
-    setStudentMap((prev) =>
+    setStudentChatMap((prev) =>
       update(prev, {
         [sid]: {
           _messageLoadStatus: {
@@ -151,23 +165,33 @@ const MomoTalk = () => {
       }),
     )
 
-    // TODO: 如果当前学生和获取聊天记录时的学生不是同一个时
-    lastMessageBoxRef.current?.scrollIntoView()
+    if (sid === currentStudentId) {
+      chatMessagesBoxRef.current!.scrollTop = 10000000
+    }
   }
 
   const initWs = async () => {
-    console.log('[initWs] authStore.token ', authStore.token)
+    const wsUrl = import.meta.env.VITE_WS_URL
 
-    // const ws = new WebSocket(wsUrl, authStore.token)
-    wsRef.current = new WebSocket(wsUrl, authStore.token)
-    // const ws = new WebSocket(wsUrl)
-    // return wsRef.current
+    wsRef.current = new WebSocket(wsUrl, authState.token)
 
     wsRef.current.onopen = () => {
       console.log('ws open')
+
+      setAllStudent((prev) => {
+        const index = prev.findIndex((s) => s.id === authStore.user.id)
+        if (index === -1) return prev
+        return update(prev, {
+          [index]: {
+            is_online: {
+              $set: true,
+            },
+          },
+        })
+      })
     }
+
     wsRef.current.onmessage = (e) => {
-      console.log('[onmessage]', e.data)
       console.log('[onmessage] 当前用户 currentStudent ', _currentStudent)
       console.log('[onmessage] 当前用户 currentStudentId ', currentStudentId)
       console.log('[onmessage] 当前用户 id', _currentStudent?.id)
@@ -184,81 +208,66 @@ const MomoTalk = () => {
           // const { type, message: msg, toSid, fromSid } = message
           if (message.from_sid === message.to_sid) return
 
-          // const h1 =
-          //   chatMessagesBoxRef.current!.clientHeight +
-          //   chatMessagesBoxRef.current!.scrollTop
-          // const h2 = chatMessagesBoxRef.current!.scrollHeight - 20
-          // console.log('h1 ', h1)
-          // console.log('h2 ', h2)
-
           const isAtBottom =
             chatMessagesBoxRef.current!.clientHeight +
               chatMessagesBoxRef.current!.scrollTop >
-            chatMessagesBoxRef.current!.scrollHeight - 20
-          // 清空当前未读
-          if (message.from_sid === _currentStudent?.id) {
-            sendRead(_currentStudent!.id)
+            chatMessagesBoxRef.current!.scrollHeight - 120
+
+          // if (_isOne2OneChat) {
+          if (message.to_sid !== 0) {
+            // 清空当前未读
+            if (message.from_sid === _currentStudent?.id) {
+              sendRead(_currentStudent!.id)
+
+              // 本地未读数+1
+            } else {
+              setAllStudent((prev) => {
+                const findIndex = prev.findIndex((item) => item.id === message.from_sid)
+
+                if (findIndex === -1) return prev
+
+                return update(prev, {
+                  [findIndex]: {
+                    unread_count: {
+                      $set: prev[findIndex].unread_count + 1,
+                      // $set:
+                      //   message.from_sid !== _currentStudent?.id
+                      //     ? prev[findIndex].unread_count + 1
+                      //     : 0,
+                    },
+                  },
+                })
+              })
+            }
+            setStudentChatMap((prev) => {
+              return update(prev, {
+                [message.from_sid!]: {
+                  messages: {
+                    $push: [message],
+                  },
+                },
+              })
+            })
+          } else {
+            setGroupMessages((prev) => {
+              const some = prev.some((msg) => msg.send_key === message.send_key)
+              if (some) return prev
+
+              return update(prev, {
+                $push: [message],
+              })
+            })
           }
 
-          setStudentMap((prev) => {
-            return update(prev, {
-              [message.from_sid!]: {
-                messages: {
-                  $push: [message],
-                },
-              },
-            })
-          })
-          setAllStudent((prev) => {
-            const findIndex = prev.findIndex((item) => item.id === message.from_sid)
-
-            console.log('findIndex ', findIndex)
-            if (findIndex === -1) return prev
-
-            return update(prev, {
-              [findIndex]: {
-                unread_count: {
-                  $set:
-                    message.from_sid !== _currentStudent?.id
-                      ? prev[findIndex].unread_count + 1
-                      : 0,
-                },
-              },
-            })
-          })
-          // setAllStudent((prev) => {
-          //   console.log('prev ', prev)
-
-          //   const findIndex = prev.findIndex((item) => item.id === message.from_sid)
-
-          //   console.log('findIndex ', findIndex)
-          //   if (findIndex === -1) return prev
-
-          //   return update(prev, {
-          //     [findIndex]: {
-          //       messages: prev[findIndex].messages
-          //         ? {
-          //             $push: [message],
-          //           }
-          //         : {
-          //             $set: [message],
-          //           },
-          //       unread_count: {
-          //         $set:
-          //           message.from_sid !== _currentStudent?.id
-          //             ? prev[findIndex].unread_count + 1
-          //             : 0,
-          //       },
-          //     },
-          //   })
-          // })
           setTimeout(() => {
-            // console.log('chatMessagesBoxRef ', chatMessagesBoxRef.current)
-
-            // chatMessagesBoxRef.current!.scrollTop =
-            //   chatMessagesBoxRef.current!.scrollHeight
-            if (isAtBottom) {
-              lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
+            if (_isOne2OneChat) {
+              if (message.from_sid === _currentStudent?.id && isAtBottom) {
+                lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }
+            } else if (_isGroupChat) {
+              if (isAtBottom) {
+                lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }
             }
           }, 100)
           break
@@ -266,11 +275,8 @@ const MomoTalk = () => {
         // 用户上线
         case MessageActionType.ONLINE: {
           setAllStudent((prev) => {
-            console.log('用户上线 prev ', prev)
-
             const findIndex = prev.findIndex((item) => item.id === message.from_sid)
 
-            console.log('findIndex ', findIndex)
             if (findIndex === -1) return prev
 
             const list = update(prev, {
@@ -280,11 +286,11 @@ const MomoTalk = () => {
                 },
               },
             })
-            // const sorted = list.sort((item) => (item.is_online ? -1 : 1))
+            // TODO: 抽离排序
             const sorted = list.sort((s1, s2) => {
               return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
             })
-            // setAllStudent(sorted)
+
             return sorted
           })
           break
@@ -294,7 +300,6 @@ const MomoTalk = () => {
           setAllStudent((prev) => {
             const findIndex = prev.findIndex((item) => item.id === message.from_sid)
 
-            console.log('findIndex ', findIndex)
             if (findIndex === -1) return prev
 
             const list = update(prev, {
@@ -305,6 +310,7 @@ const MomoTalk = () => {
               },
             })
 
+            // TODO: 抽离排序
             // const sorted = list.sort((item) => (item.is_online ? -1 : 1))
             const sorted = list.sort((s1, s2) => {
               return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
@@ -315,33 +321,19 @@ const MomoTalk = () => {
           break
         }
         case MessageActionType.SEND_PONG: {
-          setAllStudent((prev) => {
-            console.log('发送消息响应 message ', message)
-            console.log('发送消息响应 message ', message)
+          if (!message.to_sid) return
 
-            const findIndex = prev.findIndex((item) => item.id === message.to_sid)
-            console.log('发送消息响应 findIndex ', findIndex)
+          setStudentChatMap((prev) => {
+            const find = prev[message.to_sid!]
+            const index =
+              find.messages?.findIndex((msg) => msg.send_key === message.send_key) || -1
 
-            if (findIndex === -1) return prev
-
-            console.log(
-              '发送消息响应 prev[findIndex].messages ',
-              prev[findIndex].messages,
-            )
-
-            if (!prev[findIndex].messages) return prev
-
-            const msgIndex = prev[findIndex].messages!.findIndex(
-              (msg) => msg.send_key === message.send_key,
-            )
-
-            console.log('发送消息响应 msgIndex ', msgIndex)
-            if (msgIndex === -1) return prev
+            if (index === -1) return prev
 
             return update(prev, {
-              [findIndex]: {
+              [message.to_sid!]: {
                 messages: {
-                  [msgIndex]: {
+                  [index]: {
                     send_status: {
                       $set: SendStatus.OK,
                     },
@@ -350,13 +342,28 @@ const MomoTalk = () => {
               },
             })
           })
+
           break
         }
       }
-      // setState(e.data);
     }
+
     wsRef.current.onclose = () => {
       console.log('ws close')
+
+      setAllStudent((prev) => {
+        const index = prev.findIndex((s) => s.id === authStore.user.id)
+
+        if (index === -1) return prev
+
+        return update(prev, {
+          [index]: {
+            is_online: {
+              $set: false,
+            },
+          },
+        })
+      })
     }
     wsRef.current.onerror = () => {
       console.log('ws error')
@@ -367,9 +374,13 @@ const MomoTalk = () => {
   }
 
   const sendMessage = async (messageText: string, msgType = MessageContentType.TEXT) => {
+    // 发送群消息,群消息sid默认为0
+    const toSid = isOne2OneChat ? currentStudent?.id : 0
+
     const message: Message = {
-      to_sid: currentStudent?.id,
-      from_sid: authStore.user.id,
+      // to_sid: currentStudent?.id,
+      to_sid: toSid,
+      from_sid: authState.user.id,
       message: messageText,
       type: MessageActionType.NORMAL,
       // msgType: MessageContentType.TEXT,
@@ -381,44 +392,36 @@ const MomoTalk = () => {
     wsRef.current?.send(JSON.stringify(message))
 
     // const findIndex = allStudent.findIndex((item) => item.id === currentStudent?.id)
-
-    setStudentMap((prev) =>
-      update(prev, {
-        [currentStudentId!]: {
-          messages: {
-            $push: [message],
+    if (isOne2OneChat) {
+      setStudentChatMap((prev) =>
+        update(prev, {
+          [currentStudentId!]: {
+            messages: {
+              $push: [message],
+            },
           },
-        },
-      }),
-    )
-    // setAllStudent((prev) => {
-    //   return update(prev, {
-    //     [findIndex]: {
-    //       messages: prev[findIndex].messages
-    //         ? {
-    //             $push: [message],
-    //           }
-    //         : {
-    //             $set: [message],
-    //           },
-    //     },
-    //   })
-    // })
+        }),
+      )
+    } else {
+      setGroupMessages((prev) =>
+        update(prev, {
+          $push: [message],
+        }),
+      )
+    }
+
     setTimeout(() => {
       lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, 100)
+    }, 30)
   }
 
+  //
   const handleSendTextMessage = async () => {
-    console.log('inputRef.current ', inputRef.current)
-    console.log('inputRef.current ', inputRef.current?.value)
-    if (!inputRef.current) return
-
     const { value } = inputRef.current! || ''
     if (value.trim().length === 0) return
 
     sendMessage(value)
-    inputRef.current.value = ''
+    inputRef.current!.value = ''
   }
 
   const handleSendStampMessage = async (
@@ -450,7 +453,7 @@ const MomoTalk = () => {
   const sendRead = async (sid: number) => {
     const data: Message = {
       // from_sid: authState.user.id,
-      from_sid: authStore.user.id,
+      from_sid: authState.user.id,
       to_sid: sid,
       type: MessageActionType.READ,
     }
@@ -459,8 +462,14 @@ const MomoTalk = () => {
   }
 
   useEffect(() => {
-    console.log('[useEffect] 当前学生改变 sid ', currentStudent?.id)
-    console.log('[useEffect] 当前学生改变 auth id', authState.user?.id)
+    setTimeout(() => {
+      // if (currentStudent) {
+      chatMessagesBoxRef.current!.scrollTop = 10000000
+      // }
+    }, 300)
+  }, [tabIndex])
+
+  useEffect(() => {
     if (!currentStudent || currentStudentId === null) return
 
     if (currentStudent.unread_count > 0) {
@@ -469,34 +478,50 @@ const MomoTalk = () => {
     }
 
     const index = allStudent.findIndex((item) => item.id === currentStudent.id)
+
+    setAllStudent((prev) =>
+      update(prev, {
+        [index]: {
+          unread_count: {
+            $set: 0,
+          },
+        },
+      }),
+    )
     if (currentStudent._messageLoadStatus === null) {
-      setAllStudent((prev) =>
+      setStudentChatMap((prev) =>
         update(prev, {
-          [index]: {
+          [currentStudent.id]: {
             _messageLoadStatus: {
               $set: PageStatus.LOADING,
             },
-            unread_count: {
-              $set: 0,
-            },
           },
         }),
       )
+      // setAllStudent((prev) =>
+      //   update(prev, {
+      //     [index]: {
+      //       // _messageLoadStatus: {
+      //       //   $set: PageStatus.LOADING,
+      //       // },
+      //       unread_count: {
+      //         $set: 0,
+      //       },
+      //     },
+      //   }),
+      // )
 
       fetchMessages(currentStudent.id)
     } else {
-      // lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
-      lastMessageBoxRef.current?.scrollIntoView()
+      _messageScrollTimer = setTimeout(() => {
+        chatMessagesBoxRef.current!.scrollTop = 10000000
+      }, 300)
+    }
 
-      setAllStudent((prev) =>
-        update(prev, {
-          [index]: {
-            unread_count: {
-              $set: 0,
-            },
-          },
-        }),
-      )
+    return function () {
+      if (_messageScrollTimer) {
+        clearTimeout(_messageScrollTimer)
+      }
     }
   }, [currentStudentId])
 
@@ -508,38 +533,27 @@ const MomoTalk = () => {
     <motion.div key="home" className="w-full h-full flex items-center justify-center">
       <motion.div
         drag
-        dragElastic={0.1}
+        dragElastic={0.05}
         dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        className="w-[80%] h-[80%] flex flex-col bg-white m-auto rounded-2xl overflow-hidden relative"
+        className="md:w-[1200px] md:h-[80%] w-[100%] h-[100%] flex flex-col bg-white m-auto md:rounded-2xl overflow-hidden relative"
       >
         <motion.div
           variants={{
             hide: {
               height: 0,
-              opacity: 0,
-              transition: {
-                when: 'afterChildren',
-              },
             },
             open: {
-              opacity: 1,
               height: '100%',
-              transition: {
-                when: 'beforeChildren',
-              },
             },
           }}
           animate={isInit ? 'hide' : 'open'}
-          className="absolute flex items-center z-50 justify-center w-full h-full z-50 top-0 left-0 bg-[#fc8da2] overflow-hidden"
+          className="absolute flex items-center z-50 justify-center w-full h-full z-[500] top-0 left-0 bg-[#fc8da2] overflow-hidden"
         >
           <motion.div
             variants={{
               hide: {
                 scale: 0.5,
                 opacity: 0.9,
-                transition: {
-                  // delay: 0.5,
-                },
               },
               open: {
                 opacity: 1,
@@ -550,13 +564,11 @@ const MomoTalk = () => {
             className="flex flex-col text-center items-center justify-center"
           >
             <img className="w-[100px] h-[100px]" src={icon} alt=""></img>
-            <span className="text-2xl font-bold text-white mt-2 font-[blueaka]">
-              MomoTalk
-            </span>
+            <span className="text-2xl font-bold text-white mt-2">MomoTalk</span>
           </motion.div>
         </motion.div>
 
-        <div className="h-[60px] flex flex-row items-center px-4 bg-[linear-gradient(#ff899e,#f79bac)]">
+        <div className="md:h-[60px] h-[48px] justify-center md:justify-start  flex flex-row items-center px-4 bg-[linear-gradient(#ff899e,#f79bac)]">
           <motion.div
             variants={{
               hide: {
@@ -574,7 +586,7 @@ const MomoTalk = () => {
           >
             <img className="h-[35px] w-[35px]" src={icon} alt="" />
             <h1
-              className="text-2xl text-white ml-2 font-bold font-[blueaka]"
+              className="text-2xl text-white ml-2 font-bold"
               style={{ filter: 'drop-shadow(0 0 2px #FFFFFF)' }}
             >
               MomoTalk
@@ -582,12 +594,15 @@ const MomoTalk = () => {
           </motion.div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden flex-row bg-white">
-          <div className="w-[80px] h-[100%] relative">
+        <div className="flex-1 flex overflow-hidden flex-row bg-white relative">
+          <div className="w-[80px] h-[100%] relative max-md:hidden">
             <motion.div
               variants={{
                 open: {
                   width: '100%',
+                  transition: {
+                    delay: 0.3,
+                  },
                 },
                 hide: {
                   width: 0,
@@ -597,11 +612,12 @@ const MomoTalk = () => {
               className="absolute top-0 left-0 w-full h-full bg-[#4b5b6f]"
             ></motion.div>
             <motion.div
+              initial="hide"
               variants={{
                 open: {
                   opacity: 1,
                   transition: {
-                    delay: 0.3,
+                    delay: 0.5,
                   },
                 },
                 hide: {
@@ -611,179 +627,252 @@ const MomoTalk = () => {
               animate={isInit ? 'open' : 'hide'}
               className="z-40 relative"
             >
-              <SideMenu icon="user" active />
-              <SideMenu icon="message" />
+              <SideMenu
+                icon="user"
+                active={isOne2OneChat}
+                onClick={() => setTabIndex(0)}
+              />
+              <SideMenu
+                icon="message"
+                active={isGroupChat}
+                onClick={() => setTabIndex(1)}
+              />
             </motion.div>
           </div>
 
-          <motion.div
-            variants={{
-              hide: {
-                opacity: 0,
-              },
-              open: {
-                opacity: 1,
-                transition: {
-                  delay: 0.4,
-                },
-              },
-            }}
-            animate={isInit ? 'open' : 'hide'}
-            className="flex flex-col w-[300px] bg-[#f3f7f8] h-[100%] overflow-y-auto"
-          >
-            <div className="flex justify-between items-center px-4 bg-white h-[50px] font-[blueaka]">
-              <div>
-                <span className="text-md font-bold">
-                  未读消息({totalUnreadMessageCount})
-                </span>
-              </div>
-              <div>
-                <SkewButton
-                  shadow
-                  onClick={() => {
-                    console.log('1')
-                  }}
-                  className="text-white bg-white py-0-important px-3"
-                >
-                  <svg
-                    data-v-6983fa4c=""
-                    width="35px"
-                    height="28px"
-                    viewBox="0 0 24.00 24.00"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="icon list"
-                  >
-                    <g id="SVGRepo_iconCarrier">
-                      <path
-                        d="M5 8H19M5 12H19M5 16H19"
-                        stroke="#2a323e"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      ></path>
-                    </g>
-                  </svg>
-                </SkewButton>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              <Reorder.Group axis="y" values={allStudent} onReorder={() => {}}>
-                {allStudent.map((student, index) => (
-                  <Reorder.Item key={student.id} value={student}>
-                    <StudentItem
-                      student={student}
-                      key={student.id}
-                      active={student.id === currentStudentId}
-                      onClick={() => setCurrentStudentId(student.id)}
-                    ></StudentItem>
-                  </Reorder.Item>
-                ))}
-              </Reorder.Group>
-            </div>
-          </motion.div>
-
-          <div className="flex  flex-col flex-1 h-full relative">
-            <div
-              ref={chatMessagesBoxRef}
-              className="bg-white flex-1 flex-col p-2 overflow-y-auto"
-            >
-              {currentStudent?.messages?.map((msg, index) => (
+          {isOne2OneChat && (
+            <AnimatePresence>
+              <motion.div
+                initial={{
+                  display: 'none',
+                }}
+                variants={{
+                  open: {
+                    display: 'flex',
+                  },
+                  hidden: {
+                    display: 'none',
+                    transition: {
+                      delay: 0.3,
+                    },
+                  },
+                }}
+                animate={studentListSideVisible ? 'open' : 'hidden'}
+              >
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1, transition: { delay: 0.3 } }}
-                  key={`${msg.from_sid}_${msg.to_sid}_${msg.id || 0}_${index}`}
-                  className={`flex px-2 mb-1 ${
-                    msg.from_sid === authState.user.id ? 'flex-row-reverse' : ''
-                  }`}
+                  initial="hide"
+                  variants={{
+                    hide: {
+                      opacity: 0,
+                    },
+                    open: {
+                      opacity: 1,
+                      transition: {
+                        // delay: 0.4,
+                      },
+                    },
+                  }}
+                  exit="hide"
+                  // animate="open"
+                  animate={studentListSideVisible ? 'open' : 'hidden'}
+                  className="flex flex-col md:w-[300px] bg-[#00000080] max-md:px-6 max-md:py-14 w-full left-0 right-0 top-0 z-[400] absolute md:relative h-[100%] overflow-y-auto"
                 >
-                  <div
-                    className={`w-[45px] ${
-                      msg.from_sid === currentStudent.messages?.[index - 1]?.from_sid &&
-                      msg.msg_type === currentStudent.messages?.[index - 1]?.msg_type
-                        ? 'h-0'
-                        : 'h-[45px]'
-                    } overflow-hidden rounded-full`}
-                  >
-                    {msg.from_sid === currentStudent.messages?.[index - 1]?.from_sid &&
-                    msg.msg_type ===
-                      currentStudent.messages?.[index - 1]?.msg_type ? null : (
-                      <motion.img
-                        initial={{
-                          opacity: 0,
-                        }}
-                        animate={{
-                          opacity: 1,
-                        }}
-                        className="w-full h-full object-cover"
-                        src={
-                          msg.from_sid === authState.user.id
-                            ? `https://schale.gg/images/student/collection/${authState?.user.collection_texture}.webp`
-                            : `https://schale.gg/images/student/collection/${currentStudent?.collection_texture}.webp`
-                        }
-                        alt=""
-                      />
-                    )}
-                  </div>
-                  <div
-                    className={`flex flex-col ${
-                      msg.from_sid === authState.user.id
-                        ? 'items-end mr-2'
-                        : 'items-start ml-2'
-                    } flex-1 font-[blueaka]`}
-                  >
-                    {(msg.from_sid !== currentStudent.messages?.[index - 1]?.from_sid ||
-                      msg.msg_type !==
-                        currentStudent.messages?.[index - 1]?.msg_type) && (
-                      <span className="mb-1">
-                        {msg.from_sid === authState.user.id
-                          ? authState.user.dev_name
-                          : currentStudent.dev_name}
-                      </span>
-                    )}
+                  <div className="flex flex-col bg-[#f3f7f8] overflow-hidden shadow-xl max-md:rounded-md">
+                    <div className="flex justify-between items-center px-4 bg-white h-[50px] font-[blueaka]">
+                      <div>
+                        <span className="text-md font-bold">
+                          未读消息({totalUnreadMessageCount})
+                        </span>
+                      </div>
 
-                    {msg.msg_type === MessageContentType.STAMP && (
-                      <motion.img
-                        initial={{ opacity: 0.6 }}
-                        animate={{ opacity: 1 }}
-                        className="w-[80px] h-[80px]"
-                        alt=""
-                        src={`/images/stamp/${msg.message}.png`}
-                      ></motion.img>
-                    )}
+                      <div className="flex">
+                        <div className="max-md:hidden">
+                          <SkewButton
+                            shadow
+                            // onClick={() => {
+                            //   setStudentListSideVisible(false)
+                            // }}
+                            className="text-white bg-white py-0-important px-3"
+                          >
+                            <BaFilter></BaFilter>
+                          </SkewButton>
+                        </div>
+                        {currentStudentId && (
+                          <div className="md:hidden">
+                            <SkewButton
+                              shadow
+                              onClick={() => {
+                                setStudentListSideVisible(false)
+                              }}
+                              className="text-white bg-white py-0-important px-3"
+                            >
+                              <BiMinus color="#2a323e" fontSize={28}></BiMinus>
+                            </SkewButton>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                    {msg.msg_type === MessageContentType.TEXT && (
-                      <span className="bg-[#4c5a6e] p-2 text-[12px] rounded-md text-white max-w-[300px]">
-                        {msg.message}
-                        {/* <AnimatePresence>
-                      {msg.sendStatus === SendStatus.SENDING && (
-                        <motion.span
-                          className="inline-block"
-                          exit={{
-                            width: 0,
-                            opacity: 0,
-                            transition: {},
+                    <div className="flex-1 overflow-y-auto">
+                      {/* <Reorder.Group
+                  axis="y"
+                  values={allStudent}
+                  draggable={false}
+                  onReorder={() => {}}
+                > */}
+                      {allStudent.map((student, index) => (
+                        // <Reorder.Item draggable={false} drag key={student.id} value={student}>
+                        <StudentItem
+                          student={student}
+                          key={student.id}
+                          active={student.id === currentStudentId}
+                          onClick={() => {
+                            if (_currentStudentLock) return
+                            _currentStudentLock = true
+                            setCurrentStudentId(student.id)
+                            setTimeout(() => {
+                              _currentStudentLock = false
+                            }, 700)
                           }}
-                        >
-                          (Sending)
-                        </motion.span>
-                      )}
-                    </AnimatePresence> */}
-                      </span>
-                    )}
+                        ></StudentItem>
+                      ))}
+                      {/* </Reorder.Item> */}
+                      {/* </Reorder.Group> */}
+                    </div>
                   </div>
                 </motion.div>
-              ))}
-              <div ref={lastMessageBoxRef}></div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+
+          <div className="flex flex-col flex-1 h-full relative">
+            <div className="flex flex-1 flex-row overflow-hidden">
+              <div
+                ref={chatMessagesBoxRef}
+                className="bg-white flex-1 flex-col p-2 overflow-y-auto"
+              >
+                {(isOne2OneChat ? currentStudent?.messages : groupMessages)?.map(
+                  (msg, index) => (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1, transition: { delay: 0.3 } }}
+                      key={`${msg.from_sid}_${msg.to_sid}_${msg.id || 0}_${index}`}
+                      className={`flex px-2 mb-1 ${
+                        msg.from_sid === authState.user.id ? 'flex-row-reverse' : ''
+                      }`}
+                    >
+                      <div
+                        className={`w-[45px] ${
+                          msg.from_sid ===
+                            (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
+                              index - 1
+                            ]?.from_sid &&
+                          msg.msg_type ===
+                            (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
+                              index - 1
+                            ]?.msg_type
+                            ? 'h-0'
+                            : 'h-[45px]'
+                        } overflow-hidden rounded-full`}
+                      >
+                        {msg.from_sid ===
+                          (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
+                            index - 1
+                          ]?.from_sid &&
+                        msg.msg_type ===
+                          (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
+                            index - 1
+                          ]?.msg_type ? null : (
+                          <motion.img
+                            initial={{
+                              opacity: 0,
+                            }}
+                            animate={{
+                              opacity: 1,
+                            }}
+                            className="w-full h-full object-cover"
+                            src={
+                              msg.from_sid === authState.user.id
+                                ? `https://schale.gg/images/student/icon/${authState?.user.collection_texture}.png`
+                                : isOne2OneChat
+                                ? `https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`
+                                : `https://schale.gg/images/student/icon/${
+                                    studentsChatMap[msg.from_sid!]?.collection_texture
+                                  }.png`
+                            }
+                            alt=""
+                          />
+                        )}
+                      </div>
+                      <div
+                        className={`flex flex-col ${
+                          msg.from_sid === authState.user.id
+                            ? 'items-end mr-2'
+                            : 'items-start ml-2'
+                        } flex-1`}
+                      >
+                        {(msg.from_sid !==
+                          (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
+                            index - 1
+                          ]?.from_sid ||
+                          msg.msg_type !==
+                            (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
+                              index - 1
+                            ]?.msg_type) && (
+                          <span className="mb-1">
+                            {msg.from_sid === authState.user.id
+                              ? authState.user.dev_name
+                              : isOne2OneChat
+                              ? currentStudent?.dev_name
+                              : studentsChatMap[msg.from_sid!]?.dev_name}
+                          </span>
+                        )}
+
+                        {msg.msg_type === MessageContentType.STAMP && (
+                          <motion.img
+                            initial={{ opacity: 0.6 }}
+                            animate={{ opacity: 1 }}
+                            className="w-[80px] h-[80px]"
+                            alt=""
+                            src={`/images/stamp/${msg.message}.png`}
+                          ></motion.img>
+                        )}
+
+                        {msg.msg_type === MessageContentType.TEXT && (
+                          <span className="bg-[#4c5a6e] p-2 text-[12px] rounded-md text-white max-w-[300px]">
+                            {msg.message}
+                            {/* <AnimatePresence>
+                          {msg.send_status === SendStatus.SENDING && (
+                            <motion.span
+                              className="inline-block"
+                              exit={{
+                                width: 0,
+                                opacity: 0,
+                                transition: {
+                                  delay: 0.5,
+                                },
+                              }}
+                            >
+                              (Sending)
+                            </motion.span>
+                          )}
+                        </AnimatePresence> */}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  ),
+                )}
+                <div ref={lastMessageBoxRef}></div>
+              </div>
             </div>
 
-            <div className="chat-input-placeholder">
+            <div className="chat-input-placeholder flex-shrink-0 bg-white">
               <AnimatePresence mode="wait">
-                {currentStudent && (
+                {((isOne2OneChat && currentStudent) || isGroupChat) && (
                   <motion.div
                     initial={{
-                      y: '100%',
+                      y: '10%',
                       opacity: 0,
                     }}
                     animate={{
@@ -791,24 +880,40 @@ const MomoTalk = () => {
                       opacity: 1,
                     }}
                     exit={{
-                      y: '100%',
+                      y: '10%',
                       opacity: 0,
                     }}
-                    transition={{
-                      damping: 1,
-                    }}
-                    key={currentStudent?.id | 0}
+                    key={currentStudent?.id || 0}
                     className="flex flex-row items-center p-2"
                   >
-                    <button
-                      className="relative text-sm p-1 shadow-md"
-                      onClick={() => {
-                        console.log('click stamp')
+                    {isOne2OneChat && currentStudent && (
+                      <div className="w-[40px] h-[40px] rounded-full overflow-hidden shrink-0 relative">
+                        <img
+                          className="w-full h-full object-cover scale-[1.8]"
+                          src={`https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`}
+                          alt=""
+                        />
+                        <div
+                          className="w-full h-full  absolute top-0 left-0 max-md:[hidden]"
+                          onClick={() => setStudentListSideVisible(true)}
+                        ></div>
+                      </div>
+                    )}
 
+                    <button
+                      className="relative text-xs rounded-sm m-2"
+                      onClick={() => {
                         setStampModalVisible(true)
                       }}
                     >
-                      Stamp
+                      <div className="w-6 h-6">
+                        <motion.img
+                          whileHover={{ scale: 1.1 }}
+                          className="w-full h-full object-cover"
+                          src="/images/stamp/01.png"
+                          alt=""
+                        />
+                      </div>
                       <motion.div
                         initial={{
                           display: 'none',
@@ -833,6 +938,7 @@ const MomoTalk = () => {
                             setStampModalVisible(false)
                           }}
                         ></div>
+
                         <motion.div
                           initial="hidden"
                           variants={{
@@ -849,7 +955,7 @@ const MomoTalk = () => {
                           // initial={{ scaleY: 1, y: 20 }}
                           // animate={{ scaleY: 1, y: 0 }}
                           // exit={{ scale: 1, opacity: 0, y: -20 }}
-                          className="absolute w-[440px] h-[300px] flex flex-wrap overflow-y-auto py-2 pl-2 shadow-xl rounded-md bg-white bottom-[140%] -left-[100%] z-50"
+                          className="absolute w-[300px] md:w-[440px] h-[300px] flex flex-wrap overflow-y-auto py-2 pl-2 shadow-xl rounded-md bg-white bottom-[140%] left-[0] z-50"
                         >
                           {new Array(40).fill('').map((_, index) => (
                             <motion.img
@@ -869,41 +975,32 @@ const MomoTalk = () => {
                       </motion.div>
                     </button>
 
-                    {currentStudent && (
-                      <div className="w-[40px] h-[40px] rounded-full overflow-hidden shrink-0 ml-2">
-                        <img
-                          className="w-full h-full object-cover scale-[1.8]"
-                          src={`https://schale.gg/images/student/collection/${currentStudent?.collection_texture}.webp`}
-                          alt=""
-                        />
-                      </div>
-                    )}
-
                     <input
                       type="text"
                       onKeyPress={(e) => e.key === 'Enter' && handleSendTextMessage()}
                       ref={inputRef}
-                      maxLength={10}
+                      maxLength={100}
                       className="w-full h-[40px] p-2 border-1 border-momo  rounded-md text-[12px] outline-none caret-momo"
                       placeholder="请输入"
                     />
                     <SkewButton
-                      className="bg-momo ml-4 px-3 py-2 flex-shrink-0"
+                      className="bg-momo ml-4 px-6 py-2 flex-shrink-0"
                       onClick={handleSendTextMessage}
                     >
-                      Send to {currentStudent.dev_name}
+                      Send
                     </SkewButton>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {currentStudentId === null && (
+            {isOne2OneChat && currentStudentId === null && (
               <div className="bg-white absolute w-full h-full left-0 top-0"></div>
             )}
 
             <AnimatePresence mode="wait">
-              {currentStudent &&
+              {isOne2OneChat &&
+                currentStudent &&
                 [null, PageStatus.LOADING].includes(
                   currentStudent._messageLoadStatus,
                 ) && (
@@ -913,13 +1010,46 @@ const MomoTalk = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="bg-white absolute w-full h-full left-0 top-0 flex items-center justify-center font-[blueaka] z-50"
+                    className="bg-white absolute w-full h-full left-0 top-0 flex items-center justify-center z-50"
                   >
                     <span className="text-md">Loading</span>
                   </motion.div>
                 )}
             </AnimatePresence>
           </div>
+
+          {isGroupChat && (
+            <div className="overflow-y-auto w-[180px] p-1">
+              <Reorder.Group axis="y" values={allStudent} onReorder={() => {}}>
+                {allStudent.map((student, index) => (
+                  <Reorder.Item key={student.id} value={student}>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      whileInView={{
+                        opacity: 1,
+                      }}
+                      viewport={{ once: true }}
+                      className="flex mb-1 items-center"
+                    >
+                      <div
+                        className={`w-[30px] h-[30px] rounded-full overflow-hidden ${
+                          student.is_online ? '' : 'grayscale'
+                        }`}
+                      >
+                        <img
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                          src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
+                          alt={student.collection_texture}
+                        />
+                      </div>
+                      <span className="text-sm ml-1">{student.dev_name}</span>
+                    </motion.div>
+                  </Reorder.Item>
+                ))}
+              </Reorder.Group>
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>

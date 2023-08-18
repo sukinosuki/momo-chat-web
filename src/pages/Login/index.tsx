@@ -1,5 +1,3 @@
-import './index.scss'
-
 import { AnimatePresence, motion } from 'framer-motion'
 import update from 'immutability-helper'
 import React, { useEffect, useState } from 'react'
@@ -8,7 +6,6 @@ import { useNavigate } from 'react-router-dom'
 import api from '@/api'
 import Modal from '@/components/Modal'
 import SkewButton from '@/components/SkewButton'
-import BaseLayout from '@/layout/BaseLayout'
 import authStore, { clear } from '@/store/authStore'
 import { Student } from '@/type/Student'
 import { toCatch } from '@/utils'
@@ -135,30 +132,35 @@ const Login = () => {
   return (
     <div className="w-full h-full absolute top-0 left-0 z-50 bg-[#00000080] flex items-center justify-center select-none font-[blueaka]">
       <div className="flex flex-col justify-end items-center">
-        <motion.div
-          className="w-[300px] flex flex-col items-center justify-center"
-          layout
-        >
+        <div className="w-[300px] flex flex-col items-center justify-center">
           <motion.div
             onClick={() => setChooseStudentModalVisible(true)}
             animate="rest"
             whileHover="hover"
             className="w-[100px] h-[100px] rounded-xl overflow-hidden relative cursor-pointer"
           >
-            <motion.img
-              variants={{
-                hover: {
-                  scale: 1.2,
-                },
-              }}
-              alt=""
-              className="object-cover w-full h-full"
-              src={
-                selectedStudent
-                  ? `https://schale.gg/images/student/collection/${selectedStudent?.collection_texture}.webp`
-                  : 'https://schale.gg/images/schale.png'
-              }
-            ></motion.img>
+            <AnimatePresence mode="wait">
+              <motion.img
+                variants={{
+                  hover: {
+                    scale: 1.2,
+                  },
+                }}
+                key={selectedStudent?.id || 0}
+                alt={selectedStudent?.dev_name}
+                exit={{ opacity: 0, scale: 1.2, transition: { delay: 0.3 } }}
+                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 1.2 }}
+                // loading="lazy"
+                className="object-cover w-full h-full"
+                src={
+                  selectedStudent
+                    ? // ? `https://schale.gg/images/student/collection/${selectedStudent?.collection_texture}.webp`
+                      `https://schale.gg/images/student/icon/${selectedStudent.collection_texture}.png`
+                    : 'https://schale.gg/images/schale.png'
+                }
+              ></motion.img>
+            </AnimatePresence>
 
             <motion.div
               variants={{
@@ -178,110 +180,150 @@ const Login = () => {
           </motion.div>
 
           <div className="mt-2">
-            <span className="text-white text-xl font-bold">
-              {selectedStudent?.dev_name || '请选择学生'}
-            </span>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedStudent?.id || 0}
+                initial={{ opacity: 0, scaleY: 1.1, y: 20 }}
+                animate={{ opacity: 1, scaleY: 1, y: 0 }}
+                exit={{ opacity: 0, scaleY: 0.9, y: -20, transition: { delay: 0.2 } }}
+                className="text-white text-xl font-bold"
+              >
+                {selectedStudent?.dev_name || '请选择学生'}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        </motion.div>
+        </div>
 
         <motion.div layout className="mt-8 flex flex-col md:flex-row w-full">
-          <SkewButton colored className="w-full" onClick={handleLogin}>
+          <SkewButton colored className="w-full py-2" onClick={handleLogin}>
             Login
           </SkewButton>
         </motion.div>
       </div>
 
       <AnimatePresence>
-        {chooseStudentModalVisible && (
-          <motion.div className="fixed w-full h-full top-0 left-0 flex items-center justify-center font-[blueaka]">
-            <div
-              className="w-full h-full fixed top-0 left-0 z-40 bg-[#00000080] "
-              onClick={() => setChooseStudentModalVisible(false)}
-            ></div>
+        <motion.div
+          initial={{
+            display: 'none',
+          }}
+          variants={{
+            open: {
+              display: 'flex',
+            },
+            hidden: {
+              display: 'none',
+              transition: {
+                delay: 0.3,
+              },
+            },
+          }}
+          animate={chooseStudentModalVisible ? 'open' : 'hidden'}
+          className="fixed w-full h-full top-0 left-0 flex items-center justify-center font-[blueaka]"
+        >
+          <div
+            className="w-full h-full fixed top-0 left-0 z-40 bg-[#00000080] "
+            onClick={() => setChooseStudentModalVisible(false)}
+          ></div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 1.1 }}
-              animate={{
+          <motion.div
+            initial="hidden"
+            variants={{
+              open: {
                 opacity: 1,
+                // y: 0,
                 scale: 1,
-                transition: {
-                  // delay: 1,
-                  when: 'beforeChildren',
-                  staggerChildren: 1,
-                },
-              }}
-              exit={{ opacity: 0, scale: 1.1 }}
-              className="w-[1200px] h-[90%] bg-white flex flex-wrap p-4 rounded-md overflow-hidden overflow-y-auto z-50"
-            >
-              {students.map((student) => (
+              },
+              hidden: {
+                opacity: 0,
+                // y: 20,
+                // scale: 1.01,
+              },
+            }}
+            animate={chooseStudentModalVisible ? 'open' : 'hidden'}
+            // initial={{ opacity: 0, scale: 1.1 }}
+            // animate={{
+            //   opacity: 1,
+            //   scale: 1,
+            //   transition: {
+            //     // delay: 1,
+            //     when: 'beforeChildren',
+            //     staggerChildren: 1,
+            //   },
+            // }}
+            // exit={{ opacity: 0, scale: 1.1 }}
+            className="w-[1280px] h-[90%] max-md:w-[340px] max-md:h-[80%] bg-white flex flex-wrap pr-0 py-4 pl-4 max-md:py-2 max-md:pl-2 rounded-md overflow-hidden overflow-y-auto z-50"
+          >
+            {students.map((student) => (
+              <motion.div
+                onClick={() => handleChooseStudent(student)}
+                initial={{
+                  opacity: 0,
+                  scale: 0.9,
+                }}
+                whileInView={{
+                  opacity: 1,
+                  scale: 1,
+                  transition: {
+                    delay: 0.3,
+                  },
+                }}
+                viewport={{ once: true }}
+                className="relative w-[110px] h-[130px] max-md:w-[74px] max-md:h-[100px] mr-4 mb-4 max-md:mr-2 max-md:mb-2"
+                key={student.id}
+              >
                 <motion.div
-                  onClick={() => handleChooseStudent(student)}
-                  initial={{
-                    opacity: 0,
-                    scale: 0.9,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    scale: 1,
-                    transition: {
-                      delay: 0.3,
-                    },
-                  }}
-                  className="relative w-[110px] h-[130px] mr-4 mb-4"
-                  key={student.id}
+                  whileHover="hover"
+                  animate="rest"
+                  className="rounded-md overflow-hidden absolute w-full h-full cursor-pointer"
                 >
-                  <motion.div
-                    whileHover="hover"
-                    animate="rest"
-                    className="rounded-md overflow-hidden absolute w-full h-full cursor-pointer"
-                  >
-                    <motion.img
-                      variants={{
-                        hover:
-                          student.is_online || student.is_latest_login
-                            ? {}
-                            : {
-                                scale: 1.2,
-                              },
-                      }}
-                      className="w-full h-full object-cover"
-                      src={`https://schale.gg/images/student/collection/${student.collection_texture}.webp`}
-                      alt=""
-                    />
+                  <motion.img
+                    variants={{
+                      hover:
+                        student.is_online || student.is_latest_login
+                          ? {}
+                          : {
+                              scale: 1.2,
+                            },
+                    }}
+                    className="w-full h-full object-cover"
+                    // src={`https://schale.gg/images/student/collection/${student.collection_texture}.webp`}
+                    src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
+                    alt={student.dev_name}
+                    loading="lazy"
+                  />
 
-                    <div className="absolute bottom-0 left-0 flex flex-col items-center justify-center w-full bg-[#ffffffcc]">
-                      {/* <span className="text-md text-black-400">Aru</span> */}
-                      <span className="text-md text-black-400">{student.dev_name}</span>
-                    </div>
-                    <motion.div
-                      variants={{
-                        rest:
-                          student.is_online || student.is_latest_login
-                            ? {}
-                            : {
-                                opacity: 0,
-                                scale: 1.2,
-                              },
-                        hover:
-                          student.is_online || student.is_latest_login
-                            ? {}
-                            : {
-                                opacity: 1,
-                                scale: 1,
-                              },
-                      }}
-                      className="absolute w-full h-full top-0 left-0 text-sm text-white flex items-center justify-center bg-[#00000080]"
-                    >
-                      {student.is_online || student.is_latest_login
-                        ? '不可选择'
-                        : '选择学生'}
-                    </motion.div>
+                  <div className="absolute bottom-0 left-0 flex flex-col items-center justify-center w-full bg-[#ffffffcc]">
+                    {/* <span className="text-md text-black-400">Aru</span> */}
+                    <span className="text-md text-black-400">{student.dev_name}</span>
+                  </div>
+                  <motion.div
+                    variants={{
+                      rest:
+                        student.is_online || student.is_latest_login
+                          ? {}
+                          : {
+                              opacity: 0,
+                              scale: 1.2,
+                            },
+                      hover:
+                        student.is_online || student.is_latest_login
+                          ? {}
+                          : {
+                              opacity: 1,
+                              scale: 1,
+                            },
+                    }}
+                    className="absolute w-full h-full top-0 left-0 text-sm text-white flex items-center justify-center bg-[#00000080]"
+                  >
+                    {student.is_online || student.is_latest_login
+                      ? '不可选择'
+                      : '选择学生'}
                   </motion.div>
                 </motion.div>
-              ))}
-            </motion.div>
+              </motion.div>
+            ))}
           </motion.div>
-        )}
+        </motion.div>
       </AnimatePresence>
 
       <Modal

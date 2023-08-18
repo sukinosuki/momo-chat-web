@@ -23,7 +23,7 @@ const Modal: React.FC<TProps> = (props) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full h-full fixed top-0 left-0 z-50 flex items-center justify-center font-[blueaka]"
+            className="w-full h-full fixed top-0 left-0 z-[9999] flex items-center justify-center font-[blueaka]"
           >
             <div className="w-full h-full fixed top-0 left-0 z-50 bg-[#00000080]"></div>
 
@@ -31,7 +31,7 @@ const Modal: React.FC<TProps> = (props) => {
               initial={{ scale: 0.9, y: 100 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 1.1, y: -20 }}
-              className="flex flex-col w-[400px] rounded-xl overflow-hidden bg-white z-50"
+              className="flex flex-col w-[400px] max-md:w-[80%] rounded-xl overflow-hidden bg-white z-50"
             >
               <div className="bg-white h-[40px] flex justify-center items-center">
                 <h3 className="text-md font-bold">{title || 'Notice'}</h3>
@@ -54,7 +54,7 @@ const Modal: React.FC<TProps> = (props) => {
                   )}
 
                   {props.onOk && (
-                    <SkewButton colored className="flex-1 ml-4" onClick={props.onOk}>
+                    <SkewButton colored className="flex-1 ml-4 py-2" onClick={props.onOk}>
                       OK
                     </SkewButton>
                   )}

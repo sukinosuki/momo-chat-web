@@ -24,7 +24,7 @@ const SkewButton: React.FC<TProps> = (props) => {
         // backgroundColor: colored ? '#3bc7ff' : '#c5e0fe',
       }}
       whileHover={{
-        scale: 1.05,
+        scale: 1.02,
         skewX: -15,
         transition: {
           // duration: 0.2,
@@ -35,7 +35,7 @@ const SkewButton: React.FC<TProps> = (props) => {
       }}
       className={[
         className,
-        `skew-button px-6 py-2 rounded-md -skew-x-[15deg] ${
+        `skew-button rounded-md -skew-x-[15deg] ${
           colored ? 'bg-[#3bc7ff]' : 'bg-[#c5e0fe]'
         } ${shadow ? 'shadow-md' : ''} text-white text-[14px]`,
       ].join(' ')}

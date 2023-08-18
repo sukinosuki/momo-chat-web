@@ -6,7 +6,11 @@ import notificationStore from '@/store/notificationStore'
 
 import { AppResponse } from '../type/AppResponse'
 
-const BaseUrl = 'http://localhost:8080'
+console.log('import.meta.env.API_BASE_URL import.meta', import.meta)
+// console.log('import.meta.env.API_BASE_URL import.meta.env', import.meta.env)
+// console.log('import.meta.env.API_BASE_URL ', import.meta.env.API_BASE_URL)
+
+const BaseUrl = import.meta.env.VITE_API_BASE_URL
 
 //
 const get = <T = null>(url: string, params = {}): Promise<AppResponse<T>> => {

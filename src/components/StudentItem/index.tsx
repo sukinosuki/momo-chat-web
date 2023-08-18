@@ -23,12 +23,12 @@ const UserItem: React.FC<TProps> = (props) => {
   }, [authStore, student])
 
   const studentName = useMemo(() => {
-    const { dev_name: devName, is_online: isOnline, id } = student
+    const { dev_name: devName, is_online, id } = student
     if (isMe) {
       return `${devName}(${id})(我)`
     }
 
-    return `${devName}(${id})(${isOnline ? '在线' : '离线'})`
+    return `${devName}(${id})(${is_online ? '在线' : '离线'})`
   }, [student, isMe])
 
   useEffect(() => {
@@ -50,27 +50,27 @@ const UserItem: React.FC<TProps> = (props) => {
       onClick={props.onClick}
     >
       <div className={`flex flex-row p-2 ${active ? 'bg-[#dae5e9]' : ''}`}>
-        <div className="w-[60px] h-[60px] bg-slate-300 rounded-full overflow-hidden shrink-0">
+        <div className="w-[60px] h-[60px] max-md:w-[40px] max-md:h-[40px] bg-slate-300 rounded-full overflow-hidden shrink-0">
           {inView && (
             <motion.img
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover max-md:scale-[1.5]"
               src={`https://schale.gg/images/student/collection/${student.collection_texture}.webp`}
               alt=""
             />
           )}
         </div>
 
-        <div className="flex flex-col justify-between ml-2 flex-1  h-[60px]">
+        <div className="flex flex-col justify-between ml-2 flex-1 h-[60px] max-md:h-[40px] overflow-hidden">
           <span
             className={`${
               student.is_online ? 'text-[#2a323e]' : 'text-[#9ca5ab]'
-            } text-[18px] font-bold`}
+            } text-xl max-md:text-sm font-bold`}
           >
             {studentName}
           </span>
-          <span className="text-[#9ca5ab] text-md text-ellipsis truncate">
+          <span className="text-[#9ca5ab] text-md max-md:text-xs text-ellipsis truncate">
             自行车伙伴招募中……(1/5)
           </span>
         </div>

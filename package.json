@@ -1,5 +1,5 @@
 {
-  "name": "vite-reactts-eslint-prettier",
+  "name": "momotalk-like-chat",
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "query-string": "^8.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-icons": "^4.10.1",
     "react-router-dom": "^6.15.0",
     "valtio": "^1.11.2"
   },
@@ -39,6 +40,7 @@
     "sass": "^1.65.1",
     "tailwindcss": "^3.3.3",
     "typescript": "^4.5.5",
+    "vconsole": "^3.15.1",
     "vite": "^2.9.12"
   },
   "pre-commit": "lint",
