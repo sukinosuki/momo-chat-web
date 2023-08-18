@@ -51,7 +51,7 @@ const MomoTalk = () => {
   const [isInit, setIsInit] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const chatMessagesBoxRef = useRef<HTMLDivElement>(null)
-  const lastMessageBoxRef = useRef<HTMLDivElement>(null)
+  const lastMessageEmptyItemRef = useRef<HTMLDivElement>(null)
 
   const currentStudent: Student | null = useMemo(() => {
     if (currentStudentId == null) {
@@ -94,9 +94,10 @@ const MomoTalk = () => {
     }, {})
 
     // 排序, 在线和id最小的在前面
-    const sorted = res.sort((s1, s2) => {
-      return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
-    })
+    // const sorted = res.sort((s1, s2) => {
+    //   return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
+    // })
+    const sorted = sortByOnline(res)
 
     const simpleList: any[] = sorted.map((item) => {
       const { id, dev_name, family_name, collection_texture, unread_count, is_online } =
@@ -124,6 +125,11 @@ const MomoTalk = () => {
     return Promise.resolve(res)
   }
 
+  const sortByOnline = (list: Student[]) => {
+    return list.sort((s1, s2) => {
+      return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
+    })
+  }
   //
   const fetchMessages = async (sid: number, messageId: number | null = null) => {
     // await sleep(2000)
@@ -198,22 +204,12 @@ const MomoTalk = () => {
       const message = JSON.parse(e.data) as Message
       console.log('[onmessage] message ', message)
 
-      // const isAtBottom =
-      //   chatMessagesBoxRef.current!.clientHeight + chatMessagesBoxRef.current!.scrollTop >
-      //   chatMessagesBoxRef.current!.scrollHeight - 20
-
       switch (message.type) {
         // 收到内容消息
         case MessageActionType.NORMAL: {
           // const { type, message: msg, toSid, fromSid } = message
           if (message.from_sid === message.to_sid) return
 
-          const isAtBottom =
-            chatMessagesBoxRef.current!.clientHeight +
-              chatMessagesBoxRef.current!.scrollTop >
-            chatMessagesBoxRef.current!.scrollHeight - 120
-
-          // if (_isOne2OneChat) {
           if (message.to_sid !== 0) {
             // 清空当前未读
             if (message.from_sid === _currentStudent?.id) {
@@ -259,14 +255,23 @@ const MomoTalk = () => {
             })
           }
 
-          setTimeout(() => {
+          const isAtBottom =
+            chatMessagesBoxRef.current!.clientHeight +
+              chatMessagesBoxRef.current!.scrollTop >
+            chatMessagesBoxRef.current!.scrollHeight - 120
+
+          if (_messageScrollTimer) {
+            clearTimeout(_messageScrollTimer)
+          }
+
+          _messageScrollTimer = setTimeout(() => {
             if (_isOne2OneChat) {
               if (message.from_sid === _currentStudent?.id && isAtBottom) {
-                lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
+                lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
               }
             } else if (_isGroupChat) {
               if (isAtBottom) {
-                lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
+                lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
               }
             }
           }, 100)
@@ -287,11 +292,12 @@ const MomoTalk = () => {
               },
             })
             // TODO: 抽离排序
-            const sorted = list.sort((s1, s2) => {
-              return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
-            })
+            // const sorted = list.sort((s1, s2) => {
+            //   return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
+            // })
 
-            return sorted
+            // return sorted
+            return sortByOnline(list)
           })
           break
         }
@@ -312,11 +318,12 @@ const MomoTalk = () => {
 
             // TODO: 抽离排序
             // const sorted = list.sort((item) => (item.is_online ? -1 : 1))
-            const sorted = list.sort((s1, s2) => {
-              return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
-            })
+            // const sorted = list.sort((s1, s2) => {
+            //   return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
+            // })
 
-            return sorted
+            // return sorted
+            return sortByOnline(list)
           })
           break
         }
@@ -411,7 +418,7 @@ const MomoTalk = () => {
     }
 
     setTimeout(() => {
-      lastMessageBoxRef.current?.scrollIntoView({ behavior: 'smooth' })
+      lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, 30)
   }
 
@@ -462,7 +469,10 @@ const MomoTalk = () => {
   }
 
   useEffect(() => {
-    setTimeout(() => {
+    if (_messageScrollTimer) {
+      clearTimeout(_messageScrollTimer)
+    }
+    _messageScrollTimer = setTimeout(() => {
       // if (currentStudent) {
       chatMessagesBoxRef.current!.scrollTop = 10000000
       // }
@@ -513,6 +523,9 @@ const MomoTalk = () => {
 
       fetchMessages(currentStudent.id)
     } else {
+      if (_messageScrollTimer) {
+        clearTimeout(_messageScrollTimer)
+      }
       _messageScrollTimer = setTimeout(() => {
         chatMessagesBoxRef.current!.scrollTop = 10000000
       }, 300)
@@ -531,6 +544,17 @@ const MomoTalk = () => {
 
   return (
     <motion.div key="home" className="w-full h-full flex items-center justify-center">
+      <SkewButton
+        className="fixed top-0 left-0"
+        colored
+        onClick={() => {
+          setInterval(() => {
+            sendMessage('hello')
+          }, 100)
+        }}
+      >
+        send message{' '}
+      </SkewButton>
       <motion.div
         drag
         dragElastic={0.05}
@@ -625,7 +649,7 @@ const MomoTalk = () => {
                 },
               }}
               animate={isInit ? 'open' : 'hide'}
-              className="z-40 relative"
+              className="z-40 relative overflow-hidden"
             >
               <SideMenu
                 icon="user"
@@ -863,7 +887,7 @@ const MomoTalk = () => {
                     </motion.div>
                   ),
                 )}
-                <div ref={lastMessageBoxRef}></div>
+                <div ref={lastMessageEmptyItemRef}></div>
               </div>
             </div>
 
