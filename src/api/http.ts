@@ -6,10 +6,6 @@ import notificationStore from '@/store/notificationStore'
 
 import { AppResponse } from '../type/AppResponse'
 
-console.log('import.meta.env.API_BASE_URL import.meta', import.meta)
-// console.log('import.meta.env.API_BASE_URL import.meta.env', import.meta.env)
-// console.log('import.meta.env.API_BASE_URL ', import.meta.env.API_BASE_URL)
-
 const BaseUrl = import.meta.env.VITE_API_BASE_URL
 
 //
@@ -31,12 +27,12 @@ const get = <T = null>(url: string, params = {}): Promise<AppResponse<T>> => {
       const json = res.json()
       // console.log('json ', await json)
 
-      console.log('res.status ', res.status)
+      // console.log('res.status ', res.status)
 
       setTimeout(async () => {
         const data = (await json) as AppResponse
-        console.log('[get] data ', data)
-        console.log('[get] data ', typeof data)
+        // console.log('[get] data ', data)
+        // console.log('[get] data ', typeof data)
 
         if (data.code !== 0) {
           const msg = data.msg || JSON.stringify(data)

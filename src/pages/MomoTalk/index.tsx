@@ -52,19 +52,26 @@ enum WsStatus {
 
 //
 const MomoTalk = () => {
-  const wsRef = useRef<WebSocket>(null)
+  console.log('<MomoTalk> render')
+
   const authState = useSnapshot(authStore)
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null)
-  const [allStudent, setAllStudent] = useState<Student[]>([])
-  const [stampModalVisible, setStampModalVisible] = useState(false)
+  const [students, setStudents] = useState<Student[]>([])
 
   const [studentsChatMap, setStudentChatMap] = useState<Record<number, Student>>({})
   const [groupMessages, setGroupMessages] = useState<Message[]>([])
+
+  const [stampModalVisible, setStampModalVisible] = useState(false)
   const [studentListSideVisible, setStudentListSideVisible] = useState(false)
   const [wsStatus, setWsStatus] = useState<WsStatus | null>(null)
 
-  const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [tabIndex, setTabIndex] = useState(0)
+  const [isInit, setIsInit] = useState(false)
+
+  const wsRef = useRef<WebSocket>(null)
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const chatMessagesBoxRef = useRef<HTMLDivElement>(null)
 
   const [isGroupChat, isOne2OneChat] = useMemo(() => {
     _isGroupChat = tabIndex === 1
@@ -73,12 +80,7 @@ const MomoTalk = () => {
     return [_isGroupChat, _isOne2OneChat]
   }, [tabIndex])
 
-  const [isInit, setIsInit] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const chatMessagesBoxRef = useRef<HTMLDivElement>(null)
-  const lastMessageEmptyItemRef = useRef<HTMLDivElement>(null)
-
-  const currentStudent: Student | null = useMemo(() => {
+  const currentStudent = useMemo(() => {
     if (currentStudentId == null) {
       _currentStudent = null
       return null
@@ -90,11 +92,11 @@ const MomoTalk = () => {
   }, [studentsChatMap, currentStudentId])
 
   const totalUnreadMessageCount = useMemo(() => {
-    return allStudent.reduce((acc: number, next) => {
+    return students.reduce((acc: number, next) => {
       acc += next.unread_count
       return acc
     }, 0)
-  }, [allStudent])
+  }, [students])
 
   //
   const fetchStudents = async () => {
@@ -127,7 +129,7 @@ const MomoTalk = () => {
       }
     })
 
-    setAllStudent(simpleList)
+    setStudents(simpleList)
     setStudentChatMap(_studentMap)
 
     return Promise.resolve(res)
@@ -204,8 +206,11 @@ const MomoTalk = () => {
     wsRef.current.onopen = () => {
       console.log('ws open')
       setWsStatus(WsStatus.CONNECTED)
+      if (_reconnectWebsocketTimer) {
+        clearTimeout(_reconnectWebsocketTimer)
+      }
 
-      setAllStudent((prev) => {
+      setStudents((prev) => {
         const index = prev.findIndex((s) => s.id === authStore.user.id)
         if (index === -1) return prev
         return update(prev, {
@@ -238,7 +243,7 @@ const MomoTalk = () => {
 
               // 本地未读数+1
             } else {
-              setAllStudent((prev) => {
+              setStudents((prev) => {
                 const findIndex = prev.findIndex((item) => item.id === message.from_sid)
 
                 if (findIndex === -1) return prev
@@ -247,10 +252,6 @@ const MomoTalk = () => {
                   [findIndex]: {
                     unread_count: {
                       $set: prev[findIndex].unread_count + 1,
-                      // $set:
-                      //   message.from_sid !== _currentStudent?.id
-                      //     ? prev[findIndex].unread_count + 1
-                      //     : 0,
                     },
                   },
                 })
@@ -276,6 +277,7 @@ const MomoTalk = () => {
             })
           }
 
+          // 判断虚拟列表是否在底部附近位置才滚动到最后一条记录位置
           const isAtBottom =
             chatMessagesBoxRef.current!.clientHeight +
               chatMessagesBoxRef.current!.scrollTop >
@@ -288,18 +290,14 @@ const MomoTalk = () => {
           _messageScrollTimer = setTimeout(() => {
             if (_isOne2OneChat) {
               if (message.from_sid === _currentStudent?.id && isAtBottom) {
-                // lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
                 virtuosoRef.current?.scrollToIndex?.({
-                  // index: studentsChatMap[currentStudentId!].messages?.length || 999,
                   index: _currentStudent?.messages?.length || 999,
                   behavior: 'smooth',
                 })
               }
             } else if (_isGroupChat) {
               if (isAtBottom) {
-                // lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
                 virtuosoRef.current?.scrollToIndex?.({
-                  // index: groupMessages.length,
                   index: _groupMessageCount,
                   behavior: 'smooth',
                 })
@@ -310,7 +308,7 @@ const MomoTalk = () => {
         }
         // 用户上线
         case MessageActionType.ONLINE: {
-          setAllStudent((prev) => {
+          setStudents((prev) => {
             const findIndex = prev.findIndex((item) => item.id === message.from_sid)
 
             if (findIndex === -1) return prev
@@ -322,19 +320,14 @@ const MomoTalk = () => {
                 },
               },
             })
-            // TODO: 抽离排序
-            // const sorted = list.sort((s1, s2) => {
-            //   return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
-            // })
 
-            // return sorted
             return sortByOnlineAndUnread(list)
           })
           break
         }
         // 用户下线
         case MessageActionType.OFFLINE: {
-          setAllStudent((prev) => {
+          setStudents((prev) => {
             const findIndex = prev.findIndex((item) => item.id === message.from_sid)
 
             if (findIndex === -1) return prev
@@ -347,13 +340,6 @@ const MomoTalk = () => {
               },
             })
 
-            // TODO: 抽离排序
-            // const sorted = list.sort((item) => (item.is_online ? -1 : 1))
-            // const sorted = list.sort((s1, s2) => {
-            //   return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
-            // })
-
-            // return sorted
             return sortByOnlineAndUnread(list)
           })
           break
@@ -390,6 +376,7 @@ const MomoTalk = () => {
       console.log('ws close')
 
       setWsStatus(WsStatus.CLOSED)
+
       if (_reconnectWebsocketTimer) {
         clearTimeout(_reconnectWebsocketTimer)
       }
@@ -399,7 +386,7 @@ const MomoTalk = () => {
       }, 3000)
 
       // TODO:
-      setAllStudent((prev) => {
+      setStudents((prev) => {
         const index = prev.findIndex((s) => s.id === authStore.user.id)
 
         if (index === -1) return prev
@@ -525,12 +512,9 @@ const MomoTalk = () => {
       clearTimeout(_messageScrollTimer)
     }
     _messageScrollTimer = setTimeout(() => {
-      // if (currentStudent) {
-      // chatMessagesBoxRef.current!.scrollTop = 10000000
       virtuosoRef.current?.scrollToIndex?.({
         index: _isGroupChat ? _groupMessageCount : _currentStudent?.messages?.length || 0,
       })
-      // }
     }, 300)
   }, [tabIndex])
 
@@ -542,11 +526,11 @@ const MomoTalk = () => {
       sendRead(currentStudent.id)
     }
 
-    const index = allStudent.findIndex((item) => item.id === currentStudent.id)
+    const index = students.findIndex((item) => item.id === currentStudent.id)
 
     // _currentOne2OneChatCount = currentStudent.messages?.length || 0
 
-    setAllStudent((prev) =>
+    setStudents((prev) =>
       update(prev, {
         [index]: {
           unread_count: {
@@ -555,6 +539,7 @@ const MomoTalk = () => {
         },
       }),
     )
+
     if (currentStudent._messageLoadStatus === null) {
       setStudentChatMap((prev) =>
         update(prev, {
@@ -572,10 +557,8 @@ const MomoTalk = () => {
         clearTimeout(_messageScrollTimer)
       }
       _messageScrollTimer = setTimeout(() => {
-        // chatMessagesBoxRef.current!.scrollTop = 10000000
         virtuosoRef.current?.scrollToIndex?.({
           index: _currentStudent?.messages?.length || 999,
-          // behavior: 'smooth',
         })
       }, 300)
     }
@@ -789,7 +772,7 @@ const MomoTalk = () => {
                   draggable={false}
                   onReorder={() => {}}
                 > */}
-                      {allStudent.map((student, index) => (
+                      {students.map((student, index) => (
                         // <Reorder.Item draggable={false} drag key={student.id} value={student}>
                         <StudentItem
                           student={student}
@@ -1006,8 +989,8 @@ const MomoTalk = () => {
 
           {isGroupChat && (
             <div className="overflow-y-auto w-[180px] p-1">
-              <Reorder.Group axis="y" values={allStudent} onReorder={() => {}}>
-                {allStudent.map((student, index) => (
+              <Reorder.Group axis="y" values={students} onReorder={() => {}}>
+                {students.map((student, index) => (
                   <Reorder.Item key={student.id} value={student}>
                     <motion.div
                       initial={{ opacity: 0 }}
@@ -1040,22 +1023,6 @@ const MomoTalk = () => {
       </motion.div>
 
       <WsClosedModal open={wsStatus === WsStatus.CLOSED}></WsClosedModal>
-      {/* <AnimatePresence>
-        {wsStatus === WsStatus.CLOSED && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            exit={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="relative z-[700]"
-          >
-            <div className="w-full h-full fixed top-0 left-0 z-[800] bg-[#00000080] flex items-center justify-center select-none">
-              <div>
-                <span className="text-white text-sm">连接断开, 正在重新连接...</span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence> */}
     </motion.div>
   )
 }

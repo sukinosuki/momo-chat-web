@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import update from 'immutability-helper'
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { debounce } from 'throttle-debounce'
 
 import api from '@/api'
 import Modal from '@/components/Modal'
@@ -23,6 +24,8 @@ type ModalStatus = {
 
 //
 const Login = () => {
+  console.log('<Login> render ')
+
   const navigate = useNavigate()
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>()
@@ -70,33 +73,36 @@ const Login = () => {
     }
   }
 
-  const handleLogin = async () => {
-    // 校验学生有效性
-    if (!selectedStudent?.id) {
-      openModal('请选择学生')
-      return
-    }
+  const handleLogin = debounce(
+    300,
+    async () => {
+      if (!selectedStudent?.id) {
+        openModal('请选择学生')
+        return
+      }
 
-    const [err, res] = await toCatch(api.auth.login(selectedStudent.id))
-    if (err) return
-    console.log('res ', res)
+      const [err, res] = await toCatch(api.auth.login(selectedStudent.id))
+      if (err) return
+      console.log('res ', res)
 
-    authStore.token = res
-    authStore.isLogin = true
-    localStorage.setItem('token', res)
+      authStore.token = res
+      authStore.isLogin = true
+      localStorage.setItem('token', res)
 
-    setModalStatus((prev) =>
-      update(prev, {
-        open: { $set: true },
-        content: {
-          $set: '登录成功',
-        },
-        action: {
-          $set: ModalAction.LoginSuccess,
-        },
-      }),
-    )
-  }
+      setModalStatus((prev) =>
+        update(prev, {
+          open: { $set: true },
+          content: {
+            $set: '登录成功',
+          },
+          action: {
+            $set: ModalAction.LoginSuccess,
+          },
+        }),
+      )
+    },
+    { atBegin: true },
+  )
 
   //
   const fetchStudent = async () => {
