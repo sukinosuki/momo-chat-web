@@ -101,7 +101,7 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
         }`}
       >
         {(!isThisMsgAndPrevMsgIsFromSameStudent || !isThisMsgAndPrevMsgIsSameType) && (
-          <span className="mb-1">{messageUsername}</span>
+          <div className="mb-1">{messageUsername}</div>
         )}
 
         {isStampMsg && (
@@ -115,9 +115,9 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
         )}
 
         {isTextMsg && (
-          <span className="bg-[#4c5a6e] p-2 text-[12px] rounded-md text-white max-w-[300px]">
+          <div className="bg-[#4c5a6e] leading-none p-2 text-[12px] rounded-md text-white max-w-[300px]">
             {msg.message}
-          </span>
+          </div>
         )}
       </div>
     </motion.div>

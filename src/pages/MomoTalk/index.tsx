@@ -1,7 +1,8 @@
 import { AnimatePresence, motion, Reorder } from 'framer-motion'
+import html2canvas from 'html2canvas'
 import update from 'immutability-helper'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { BiMinus } from 'react-icons/bi'
+import { BiDownload, BiMinus } from 'react-icons/bi'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import { useSnapshot } from 'valtio'
 
@@ -24,6 +25,7 @@ import { Student } from '@/type/Student'
 import { sleep, toCatch } from '@/utils'
 
 import ChatMessageItem from './components/ChatMessageItem'
+import WsClosedModal from './components/WsClosedModal'
 
 let _currentStudent: Student | null = null
 let _isGroupChat = false
@@ -31,17 +33,22 @@ let _isOne2OneChat = false
 let _currentStudentLock = false
 let _messageScrollTimer: number | null = null
 let _groupMessageCount = 0
+let _reconnectWebsocketTimer: number | null = null
 
-const messages = new Array(10000).fill('').map((_, index) => ({
-  type: 1,
-  msg_type: 1,
-  message: `hello-${index}`,
-  from_sid: 10000,
-  to_sid: 0,
-  send_key: index,
-  send_status: 2,
-  id: index,
-}))
+// const messages = new Array(10000).fill('').map((_, index) => ({
+//   type: 1,
+//   msg_type: 1,
+//   message: `hello-${index}`,
+//   from_sid: 10000,
+//   to_sid: 0,
+//   send_key: index,
+//   send_status: 2,
+//   id: index,
+// }))
+enum WsStatus {
+  CONNECTED = 1,
+  CLOSED = 2,
+}
 
 //
 const MomoTalk = () => {
@@ -52,8 +59,9 @@ const MomoTalk = () => {
   const [stampModalVisible, setStampModalVisible] = useState(false)
 
   const [studentsChatMap, setStudentChatMap] = useState<Record<number, Student>>({})
-  const [groupMessages, setGroupMessages] = useState<Message[]>(messages)
+  const [groupMessages, setGroupMessages] = useState<Message[]>([])
   const [studentListSideVisible, setStudentListSideVisible] = useState(false)
+  const [wsStatus, setWsStatus] = useState<WsStatus | null>(null)
 
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [tabIndex, setTabIndex] = useState(0)
@@ -195,6 +203,7 @@ const MomoTalk = () => {
 
     wsRef.current.onopen = () => {
       console.log('ws open')
+      setWsStatus(WsStatus.CONNECTED)
 
       setAllStudent((prev) => {
         const index = prev.findIndex((s) => s.id === authStore.user.id)
@@ -380,6 +389,16 @@ const MomoTalk = () => {
     wsRef.current.onclose = () => {
       console.log('ws close')
 
+      setWsStatus(WsStatus.CLOSED)
+      if (_reconnectWebsocketTimer) {
+        clearTimeout(_reconnectWebsocketTimer)
+      }
+
+      _reconnectWebsocketTimer = setTimeout(() => {
+        initWs()
+      }, 3000)
+
+      // TODO:
       setAllStudent((prev) => {
         const index = prev.findIndex((s) => s.id === authStore.user.id)
 
@@ -394,6 +413,7 @@ const MomoTalk = () => {
         })
       })
     }
+
     wsRef.current.onerror = () => {
       console.log('ws error')
     }
@@ -724,10 +744,10 @@ const MomoTalk = () => {
                   exit="hide"
                   // animate="open"
                   animate={studentListSideVisible ? 'open' : 'hidden'}
-                  className="flex flex-col md:w-[300px] bg-[#00000080] max-md:px-6 max-md:py-14 w-full left-0 right-0 top-0 z-[400] absolute md:relative h-[100%] overflow-y-auto"
+                  className="flex flex-col md:w-[300px] bg-[#00000080] max-md:px-6 max-md:py-14 w-full left-0 right-0 top-0 z-[200] absolute md:relative h-[100%] overflow-y-auto"
                 >
                   <div className="flex flex-col bg-[#f3f7f8] overflow-hidden shadow-xl max-md:rounded-md">
-                    <div className="flex justify-between items-center px-4 bg-white h-[50px] font-[blueaka]">
+                    <div className="flex justify-between items-center px-4 bg-white h-[50px]">
                       <div>
                         <span className="text-md font-bold">
                           未读消息({totalUnreadMessageCount})
@@ -795,7 +815,7 @@ const MomoTalk = () => {
           )}
 
           <div className="flex flex-col flex-1 h-full relative">
-            <div className="flex flex-1 flex-row overflow-hidden">
+            <div className="flex flex-1 flex-row overflow-hidden" id="chat-messages-box">
               <div
                 ref={chatMessagesBoxRef}
                 className="bg-white flex-1 flex-col px-2 overflow-y-auto"
@@ -816,121 +836,6 @@ const MomoTalk = () => {
                     ></ChatMessageItem>
                   )}
                 ></Virtuoso>
-
-                {false &&
-                  (isOne2OneChat ? currentStudent?.messages : groupMessages)?.map(
-                    (msg, index) => (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1, transition: { delay: 0.3 } }}
-                        key={`${msg.from_sid}_${msg.to_sid}_${msg.id || 0}_${index}`}
-                        className={`flex px-2 mb-1 ${
-                          msg.from_sid === authState.user.id ? 'flex-row-reverse' : ''
-                        }`}
-                      >
-                        <div
-                          className={`w-[45px] ${
-                            msg.from_sid ===
-                              (isOne2OneChat
-                                ? currentStudent?.messages
-                                : groupMessages)?.[index - 1]?.from_sid &&
-                            msg.msg_type ===
-                              (isOne2OneChat
-                                ? currentStudent?.messages
-                                : groupMessages)?.[index - 1]?.msg_type
-                              ? 'h-0'
-                              : 'h-[45px]'
-                          } overflow-hidden rounded-full`}
-                        >
-                          {msg.from_sid ===
-                            (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
-                              index - 1
-                            ]?.from_sid &&
-                          msg.msg_type ===
-                            (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
-                              index - 1
-                            ]?.msg_type ? null : (
-                            <motion.img
-                              initial={{
-                                opacity: 0,
-                              }}
-                              animate={{
-                                opacity: 1,
-                              }}
-                              className="w-full h-full object-cover"
-                              src={
-                                msg.from_sid === authState.user.id
-                                  ? `https://schale.gg/images/student/icon/${authState?.user.collection_texture}.png`
-                                  : isOne2OneChat
-                                  ? `https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`
-                                  : `https://schale.gg/images/student/icon/${
-                                      studentsChatMap[msg.from_sid!]?.collection_texture
-                                    }.png`
-                              }
-                              alt=""
-                            />
-                          )}
-                        </div>
-                        <div
-                          className={`flex flex-col ${
-                            msg.from_sid === authState.user.id
-                              ? 'items-end mr-2'
-                              : 'items-start ml-2'
-                          } flex-1`}
-                        >
-                          {(msg.from_sid !==
-                            (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
-                              index - 1
-                            ]?.from_sid ||
-                            msg.msg_type !==
-                              (isOne2OneChat
-                                ? currentStudent?.messages
-                                : groupMessages)?.[index - 1]?.msg_type) && (
-                            <span className="mb-1">
-                              {msg.from_sid === authState.user.id
-                                ? authState.user.dev_name
-                                : isOne2OneChat
-                                ? currentStudent?.dev_name
-                                : studentsChatMap[msg.from_sid!]?.dev_name}
-                            </span>
-                          )}
-
-                          {msg.msg_type === MessageContentType.STAMP && (
-                            <motion.img
-                              initial={{ opacity: 0.6 }}
-                              animate={{ opacity: 1 }}
-                              className="w-[80px] h-[80px]"
-                              alt=""
-                              src={`/images/stamp/${msg.message}.png`}
-                            ></motion.img>
-                          )}
-
-                          {msg.msg_type === MessageContentType.TEXT && (
-                            <span className="bg-[#4c5a6e] p-2 text-[12px] rounded-md text-white max-w-[300px]">
-                              {msg.message}
-                              {/* <AnimatePresence>
-                          {msg.send_status === SendStatus.SENDING && (
-                            <motion.span
-                              className="inline-block"
-                              exit={{
-                                width: 0,
-                                opacity: 0,
-                                transition: {
-                                  delay: 0.5,
-                                },
-                              }}
-                            >
-                              (Sending)
-                            </motion.span>
-                          )}
-                        </AnimatePresence> */}
-                            </span>
-                          )}
-                        </div>
-                      </motion.div>
-                    ),
-                  )}
-                <div ref={lastMessageEmptyItemRef}></div>
               </div>
             </div>
 
@@ -966,6 +871,20 @@ const MomoTalk = () => {
                         ></div>
                       </div>
                     )}
+
+                    {/* <button
+                      onClick={() => {
+                        // TODO
+                        html2canvas(
+                      
+                          document.getElementById('chat-messages-box'),
+                        ).then((canvas) => {
+                          document.body.appendChild(canvas)
+                        })
+                      }}
+                    >
+                      <BiDownload color="#2a323e" fontSize={28}></BiDownload>
+                    </button> */}
 
                     <button
                       className="relative text-xs rounded-sm m-2"
@@ -1119,6 +1038,24 @@ const MomoTalk = () => {
           )}
         </div>
       </motion.div>
+
+      <WsClosedModal open={wsStatus === WsStatus.CLOSED}></WsClosedModal>
+      {/* <AnimatePresence>
+        {wsStatus === WsStatus.CLOSED && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="relative z-[700]"
+          >
+            <div className="w-full h-full fixed top-0 left-0 z-[800] bg-[#00000080] flex items-center justify-center select-none">
+              <div>
+                <span className="text-white text-sm">连接断开, 正在重新连接...</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence> */}
     </motion.div>
   )
 }
