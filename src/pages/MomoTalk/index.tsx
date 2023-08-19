@@ -2,6 +2,7 @@ import { AnimatePresence, motion, Reorder } from 'framer-motion'
 import update from 'immutability-helper'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { BiMinus } from 'react-icons/bi'
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import { useSnapshot } from 'valtio'
 
 import api from '@/api'
@@ -22,11 +23,26 @@ import { PageStatus } from '@/type/PageStatus'
 import { Student } from '@/type/Student'
 import { sleep, toCatch } from '@/utils'
 
+import ChatMessageItem from './components/ChatMessageItem'
+
 let _currentStudent: Student | null = null
 let _isGroupChat = false
 let _isOne2OneChat = false
 let _currentStudentLock = false
 let _messageScrollTimer: number | null = null
+let _groupMessageCount = 0
+
+const messages = new Array(10000).fill('').map((_, index) => ({
+  type: 1,
+  msg_type: 1,
+  message: `hello-${index}`,
+  from_sid: 10000,
+  to_sid: 0,
+  send_key: index,
+  send_status: 2,
+  id: index,
+}))
+
 //
 const MomoTalk = () => {
   const wsRef = useRef<WebSocket>(null)
@@ -36,9 +52,10 @@ const MomoTalk = () => {
   const [stampModalVisible, setStampModalVisible] = useState(false)
 
   const [studentsChatMap, setStudentChatMap] = useState<Record<number, Student>>({})
-  const [groupMessages, setGroupMessages] = useState<Message[]>([])
-  const [studentListSideVisible, setStudentListSideVisible] = useState(true)
+  const [groupMessages, setGroupMessages] = useState<Message[]>(messages)
+  const [studentListSideVisible, setStudentListSideVisible] = useState(false)
 
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [tabIndex, setTabIndex] = useState(0)
 
   const [isGroupChat, isOne2OneChat] = useMemo(() => {
@@ -64,8 +81,6 @@ const MomoTalk = () => {
     return _currentStudent
   }, [studentsChatMap, currentStudentId])
 
-  // console.log('currentStudent ', currentStudent)
-
   const totalUnreadMessageCount = useMemo(() => {
     return allStudent.reduce((acc: number, next) => {
       acc += next.unread_count
@@ -78,11 +93,6 @@ const MomoTalk = () => {
     const [err, res] = await toCatch(api.student.all())
     if (err) return Promise.reject(err)
 
-    // res.forEach((item) => {
-    //   item._messageLoadMoreStatus = null
-    //   item._messageLoadStatus = null
-    //   item.messages = []
-    // })
     const _studentMap = res.reduce((acc: Record<number, Student>, next) => {
       next._messageLoadMoreStatus = null
       next._messageLoadStatus = null
@@ -93,11 +103,7 @@ const MomoTalk = () => {
       return acc
     }, {})
 
-    // 排序, 在线和id最小的在前面
-    // const sorted = res.sort((s1, s2) => {
-    //   return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
-    // })
-    const sorted = sortByOnline(res)
+    const sorted = sortByOnlineAndUnread(res)
 
     const simpleList: any[] = sorted.map((item) => {
       const { id, dev_name, family_name, collection_texture, unread_count, is_online } =
@@ -113,23 +119,22 @@ const MomoTalk = () => {
       }
     })
 
-    // const _studentMap = sorted.reduce((acc: Record<number, Student>, next) => {
-    //   acc[next.id] = next
-
-    //   return acc
-    // }, {})
-
     setAllStudent(simpleList)
     setStudentChatMap(_studentMap)
 
     return Promise.resolve(res)
   }
 
-  const sortByOnline = (list: Student[]) => {
+  const sortByOnlineAndUnread = (list: Student[]) => {
     return list.sort((s1, s2) => {
-      return (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) || s1.id - s2.id
+      return (
+        (s1.is_online ? 0 : 1) - (s2.is_online ? 0 : 1) ||
+        s2.unread_count - s1.unread_count ||
+        s1.id - s2.id
+      )
     })
   }
+
   //
   const fetchMessages = async (sid: number, messageId: number | null = null) => {
     // await sleep(2000)
@@ -145,6 +150,7 @@ const MomoTalk = () => {
     }
     const [err, res] = await toCatch(api.chatMessage.all(params))
 
+    // TODO: 测试获取消息出错时
     if (err) {
       setStudentChatMap((prev) =>
         update(prev, {
@@ -165,14 +171,20 @@ const MomoTalk = () => {
             $set: PageStatus.LOADED,
           },
           messages: {
-            $set: res,
+            $unshift: res, // TODO: 有可能在获取历史消息时有新的消息到来
           },
         },
       }),
     )
 
     if (sid === currentStudentId) {
-      chatMessagesBoxRef.current!.scrollTop = 10000000
+      setTimeout(() => {
+        console.log('_currentStudent?.messages ', _currentStudent?.messages)
+
+        virtuosoRef.current?.scrollToIndex?.({
+          index: _currentStudent?.messages?.length || 999,
+        })
+      }, 100)
     }
   }
 
@@ -267,11 +279,21 @@ const MomoTalk = () => {
           _messageScrollTimer = setTimeout(() => {
             if (_isOne2OneChat) {
               if (message.from_sid === _currentStudent?.id && isAtBottom) {
-                lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
+                // lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
+                virtuosoRef.current?.scrollToIndex?.({
+                  // index: studentsChatMap[currentStudentId!].messages?.length || 999,
+                  index: _currentStudent?.messages?.length || 999,
+                  behavior: 'smooth',
+                })
               }
             } else if (_isGroupChat) {
               if (isAtBottom) {
-                lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
+                // lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
+                virtuosoRef.current?.scrollToIndex?.({
+                  // index: groupMessages.length,
+                  index: _groupMessageCount,
+                  behavior: 'smooth',
+                })
               }
             }
           }, 100)
@@ -297,7 +319,7 @@ const MomoTalk = () => {
             // })
 
             // return sorted
-            return sortByOnline(list)
+            return sortByOnlineAndUnread(list)
           })
           break
         }
@@ -323,7 +345,7 @@ const MomoTalk = () => {
             // })
 
             // return sorted
-            return sortByOnline(list)
+            return sortByOnlineAndUnread(list)
           })
           break
         }
@@ -382,7 +404,7 @@ const MomoTalk = () => {
 
   const sendMessage = async (messageText: string, msgType = MessageContentType.TEXT) => {
     // 发送群消息,群消息sid默认为0
-    const toSid = isOne2OneChat ? currentStudent?.id : 0
+    const toSid = isOne2OneChat ? currentStudent!.id : 0
 
     const message: Message = {
       // to_sid: currentStudent?.id,
@@ -398,11 +420,10 @@ const MomoTalk = () => {
 
     wsRef.current?.send(JSON.stringify(message))
 
-    // const findIndex = allStudent.findIndex((item) => item.id === currentStudent?.id)
     if (isOne2OneChat) {
       setStudentChatMap((prev) =>
         update(prev, {
-          [currentStudentId!]: {
+          [toSid]: {
             messages: {
               $push: [message],
             },
@@ -418,7 +439,12 @@ const MomoTalk = () => {
     }
 
     setTimeout(() => {
-      lastMessageEmptyItemRef.current?.scrollIntoView({ behavior: 'smooth' })
+      virtuosoRef.current?.scrollToIndex?.({
+        index: isGroupChat
+          ? groupMessages.length
+          : studentsChatMap[toSid].messages?.length || 999,
+        behavior: 'smooth',
+      })
     }, 30)
   }
 
@@ -453,6 +479,8 @@ const MomoTalk = () => {
     await initWs()
 
     await fetchStudents()
+    await sleep()
+    setStudentListSideVisible(true)
     setIsInit(true)
   }
 
@@ -469,12 +497,19 @@ const MomoTalk = () => {
   }
 
   useEffect(() => {
+    _groupMessageCount = groupMessages.length
+  }, [groupMessages])
+
+  useEffect(() => {
     if (_messageScrollTimer) {
       clearTimeout(_messageScrollTimer)
     }
     _messageScrollTimer = setTimeout(() => {
       // if (currentStudent) {
-      chatMessagesBoxRef.current!.scrollTop = 10000000
+      // chatMessagesBoxRef.current!.scrollTop = 10000000
+      virtuosoRef.current?.scrollToIndex?.({
+        index: _isGroupChat ? _groupMessageCount : _currentStudent?.messages?.length || 0,
+      })
       // }
     }, 300)
   }, [tabIndex])
@@ -482,12 +517,14 @@ const MomoTalk = () => {
   useEffect(() => {
     if (!currentStudent || currentStudentId === null) return
 
+    // 清空对应学生的未读消息
     if (currentStudent.unread_count > 0) {
-      // 清空对应学生的未读消息
       sendRead(currentStudent.id)
     }
 
     const index = allStudent.findIndex((item) => item.id === currentStudent.id)
+
+    // _currentOne2OneChatCount = currentStudent.messages?.length || 0
 
     setAllStudent((prev) =>
       update(prev, {
@@ -508,18 +545,6 @@ const MomoTalk = () => {
           },
         }),
       )
-      // setAllStudent((prev) =>
-      //   update(prev, {
-      //     [index]: {
-      //       // _messageLoadStatus: {
-      //       //   $set: PageStatus.LOADING,
-      //       // },
-      //       unread_count: {
-      //         $set: 0,
-      //       },
-      //     },
-      //   }),
-      // )
 
       fetchMessages(currentStudent.id)
     } else {
@@ -527,7 +552,11 @@ const MomoTalk = () => {
         clearTimeout(_messageScrollTimer)
       }
       _messageScrollTimer = setTimeout(() => {
-        chatMessagesBoxRef.current!.scrollTop = 10000000
+        // chatMessagesBoxRef.current!.scrollTop = 10000000
+        virtuosoRef.current?.scrollToIndex?.({
+          index: _currentStudent?.messages?.length || 999,
+          // behavior: 'smooth',
+        })
       }, 300)
     }
 
@@ -544,17 +573,6 @@ const MomoTalk = () => {
 
   return (
     <motion.div key="home" className="w-full h-full flex items-center justify-center">
-      <SkewButton
-        className="fixed top-0 left-0"
-        colored
-        onClick={() => {
-          setInterval(() => {
-            sendMessage('hello')
-          }, 100)
-        }}
-      >
-        send message{' '}
-      </SkewButton>
       <motion.div
         drag
         dragElastic={0.05}
@@ -565,6 +583,9 @@ const MomoTalk = () => {
           variants={{
             hide: {
               height: 0,
+              // transition: {
+              //   delay: 0.5,
+              // },
             },
             open: {
               height: '100%',
@@ -577,11 +598,14 @@ const MomoTalk = () => {
             variants={{
               hide: {
                 scale: 0.5,
-                opacity: 0.9,
+                opacity: 0.6,
               },
               open: {
                 opacity: 1,
                 scale: 1.2,
+                transition: {
+                  delay: 0.3,
+                },
               },
             }}
             animate={isInit ? 'hide' : 'open'}
@@ -596,13 +620,13 @@ const MomoTalk = () => {
           <motion.div
             variants={{
               hide: {
-                y: '100%',
-                transition: {
-                  delay: 0.5,
-                },
+                y: '40%',
               },
               open: {
                 y: 0,
+                transition: {
+                  delay: 0.2,
+                },
               },
             }}
             animate={isInit ? 'open' : 'hide'}
@@ -625,7 +649,7 @@ const MomoTalk = () => {
                 open: {
                   width: '100%',
                   transition: {
-                    delay: 0.3,
+                    delay: 0.2,
                   },
                 },
                 hide: {
@@ -635,6 +659,7 @@ const MomoTalk = () => {
               animate={isInit ? 'open' : 'hide'}
               className="absolute top-0 left-0 w-full h-full bg-[#4b5b6f]"
             ></motion.div>
+
             <motion.div
               initial="hide"
               variants={{
@@ -692,7 +717,7 @@ const MomoTalk = () => {
                     open: {
                       opacity: 1,
                       transition: {
-                        // delay: 0.4,
+                        delay: 0.3,
                       },
                     },
                   }}
@@ -773,99 +798,117 @@ const MomoTalk = () => {
             <div className="flex flex-1 flex-row overflow-hidden">
               <div
                 ref={chatMessagesBoxRef}
-                className="bg-white flex-1 flex-col p-2 overflow-y-auto"
+                className="bg-white flex-1 flex-col px-2 overflow-y-auto"
               >
-                {(isOne2OneChat ? currentStudent?.messages : groupMessages)?.map(
-                  (msg, index) => (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1, transition: { delay: 0.3 } }}
-                      key={`${msg.from_sid}_${msg.to_sid}_${msg.id || 0}_${index}`}
-                      className={`flex px-2 mb-1 ${
-                        msg.from_sid === authState.user.id ? 'flex-row-reverse' : ''
-                      }`}
-                    >
-                      <div
-                        className={`w-[45px] ${
-                          msg.from_sid ===
+                <Virtuoso
+                  ref={virtuosoRef}
+                  style={{ height: '100%' }}
+                  data={isOne2OneChat ? currentStudent?.messages || [] : groupMessages}
+                  itemContent={(index, msg) => (
+                    <ChatMessageItem
+                      groupMessages={groupMessages}
+                      index={index}
+                      authState={authState}
+                      currentStudent={currentStudent}
+                      isOne2OneChat={isOne2OneChat}
+                      message={msg}
+                      studentsChatMap={studentsChatMap}
+                    ></ChatMessageItem>
+                  )}
+                ></Virtuoso>
+
+                {false &&
+                  (isOne2OneChat ? currentStudent?.messages : groupMessages)?.map(
+                    (msg, index) => (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1, transition: { delay: 0.3 } }}
+                        key={`${msg.from_sid}_${msg.to_sid}_${msg.id || 0}_${index}`}
+                        className={`flex px-2 mb-1 ${
+                          msg.from_sid === authState.user.id ? 'flex-row-reverse' : ''
+                        }`}
+                      >
+                        <div
+                          className={`w-[45px] ${
+                            msg.from_sid ===
+                              (isOne2OneChat
+                                ? currentStudent?.messages
+                                : groupMessages)?.[index - 1]?.from_sid &&
+                            msg.msg_type ===
+                              (isOne2OneChat
+                                ? currentStudent?.messages
+                                : groupMessages)?.[index - 1]?.msg_type
+                              ? 'h-0'
+                              : 'h-[45px]'
+                          } overflow-hidden rounded-full`}
+                        >
+                          {msg.from_sid ===
                             (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
                               index - 1
                             ]?.from_sid &&
                           msg.msg_type ===
                             (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
                               index - 1
-                            ]?.msg_type
-                            ? 'h-0'
-                            : 'h-[45px]'
-                        } overflow-hidden rounded-full`}
-                      >
-                        {msg.from_sid ===
-                          (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
-                            index - 1
-                          ]?.from_sid &&
-                        msg.msg_type ===
-                          (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
-                            index - 1
-                          ]?.msg_type ? null : (
-                          <motion.img
-                            initial={{
-                              opacity: 0,
-                            }}
-                            animate={{
-                              opacity: 1,
-                            }}
-                            className="w-full h-full object-cover"
-                            src={
-                              msg.from_sid === authState.user.id
-                                ? `https://schale.gg/images/student/icon/${authState?.user.collection_texture}.png`
-                                : isOne2OneChat
-                                ? `https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`
-                                : `https://schale.gg/images/student/icon/${
-                                    studentsChatMap[msg.from_sid!]?.collection_texture
-                                  }.png`
-                            }
-                            alt=""
-                          />
-                        )}
-                      </div>
-                      <div
-                        className={`flex flex-col ${
-                          msg.from_sid === authState.user.id
-                            ? 'items-end mr-2'
-                            : 'items-start ml-2'
-                        } flex-1`}
-                      >
-                        {(msg.from_sid !==
-                          (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
-                            index - 1
-                          ]?.from_sid ||
-                          msg.msg_type !==
+                            ]?.msg_type ? null : (
+                            <motion.img
+                              initial={{
+                                opacity: 0,
+                              }}
+                              animate={{
+                                opacity: 1,
+                              }}
+                              className="w-full h-full object-cover"
+                              src={
+                                msg.from_sid === authState.user.id
+                                  ? `https://schale.gg/images/student/icon/${authState?.user.collection_texture}.png`
+                                  : isOne2OneChat
+                                  ? `https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`
+                                  : `https://schale.gg/images/student/icon/${
+                                      studentsChatMap[msg.from_sid!]?.collection_texture
+                                    }.png`
+                              }
+                              alt=""
+                            />
+                          )}
+                        </div>
+                        <div
+                          className={`flex flex-col ${
+                            msg.from_sid === authState.user.id
+                              ? 'items-end mr-2'
+                              : 'items-start ml-2'
+                          } flex-1`}
+                        >
+                          {(msg.from_sid !==
                             (isOne2OneChat ? currentStudent?.messages : groupMessages)?.[
                               index - 1
-                            ]?.msg_type) && (
-                          <span className="mb-1">
-                            {msg.from_sid === authState.user.id
-                              ? authState.user.dev_name
-                              : isOne2OneChat
-                              ? currentStudent?.dev_name
-                              : studentsChatMap[msg.from_sid!]?.dev_name}
-                          </span>
-                        )}
+                            ]?.from_sid ||
+                            msg.msg_type !==
+                              (isOne2OneChat
+                                ? currentStudent?.messages
+                                : groupMessages)?.[index - 1]?.msg_type) && (
+                            <span className="mb-1">
+                              {msg.from_sid === authState.user.id
+                                ? authState.user.dev_name
+                                : isOne2OneChat
+                                ? currentStudent?.dev_name
+                                : studentsChatMap[msg.from_sid!]?.dev_name}
+                            </span>
+                          )}
 
-                        {msg.msg_type === MessageContentType.STAMP && (
-                          <motion.img
-                            initial={{ opacity: 0.6 }}
-                            animate={{ opacity: 1 }}
-                            className="w-[80px] h-[80px]"
-                            alt=""
-                            src={`/images/stamp/${msg.message}.png`}
-                          ></motion.img>
-                        )}
+                          {msg.msg_type === MessageContentType.STAMP && (
+                            <motion.img
+                              initial={{ opacity: 0.6 }}
+                              animate={{ opacity: 1 }}
+                              className="w-[80px] h-[80px]"
+                              alt=""
+                              src={`/images/stamp/${msg.message}.png`}
+                            ></motion.img>
+                          )}
 
-                        {msg.msg_type === MessageContentType.TEXT && (
-                          <span className="bg-[#4c5a6e] p-2 text-[12px] rounded-md text-white max-w-[300px]">
-                            {msg.message}
-                            {/* <AnimatePresence>
+                          {msg.msg_type === MessageContentType.TEXT && (
+                            <span className="bg-[#4c5a6e] p-2 text-[12px] rounded-md text-white max-w-[300px]">
+                              {msg.message}
+                              {/* <AnimatePresence>
                           {msg.send_status === SendStatus.SENDING && (
                             <motion.span
                               className="inline-block"
@@ -881,12 +924,12 @@ const MomoTalk = () => {
                             </motion.span>
                           )}
                         </AnimatePresence> */}
-                          </span>
-                        )}
-                      </div>
-                    </motion.div>
-                  ),
-                )}
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    ),
+                  )}
                 <div ref={lastMessageEmptyItemRef}></div>
               </div>
             </div>
