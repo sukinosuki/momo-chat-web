@@ -575,12 +575,12 @@ const MomoTalk = () => {
   }, [])
 
   return (
-    <motion.div key="home" className="w-full h-full flex items-center justify-center">
+    <motion.div key="home" className="flex h-full w-full items-center justify-center">
       <motion.div
         drag
         dragElastic={0.05}
         dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        className="md:w-[1200px] md:h-[80%] w-[100%] h-[100%] flex flex-col bg-white m-auto md:rounded-2xl overflow-hidden relative"
+        className="relative m-auto flex h-[100%] w-[100%] flex-col overflow-hidden bg-white md:h-[80%] md:w-[1200px] md:rounded-2xl"
       >
         <motion.div
           variants={{
@@ -595,7 +595,7 @@ const MomoTalk = () => {
             },
           }}
           animate={isInit ? 'hide' : 'open'}
-          className="absolute flex items-center z-50 justify-center w-full h-full z-[500] top-0 left-0 bg-[#fc8da2] overflow-hidden"
+          className="absolute left-0 top-0 z-50 z-[500] flex h-full w-full items-center justify-center overflow-hidden bg-[#fc8da2]"
         >
           <motion.div
             variants={{
@@ -612,14 +612,14 @@ const MomoTalk = () => {
               },
             }}
             animate={isInit ? 'hide' : 'open'}
-            className="flex flex-col text-center items-center justify-center"
+            className="flex flex-col items-center justify-center text-center"
           >
-            <img className="w-[100px] h-[100px]" src={icon} alt=""></img>
-            <span className="text-2xl font-bold text-white mt-2">MomoTalk</span>
+            <img className="h-[100px] w-[100px]" src={icon} alt=""></img>
+            <span className="mt-2 text-2xl font-bold text-white">MomoTalk</span>
           </motion.div>
         </motion.div>
 
-        <div className="md:h-[60px] h-[48px] justify-center md:justify-start  flex flex-row items-center px-4 bg-[linear-gradient(#ff899e,#f79bac)]">
+        <div className="flex h-[48px] flex-row items-center  justify-center bg-[linear-gradient(#ff899e,#f79bac)] px-4 md:h-[60px] md:justify-start">
           <motion.div
             variants={{
               hide: {
@@ -637,7 +637,7 @@ const MomoTalk = () => {
           >
             <img className="h-[35px] w-[35px]" src={icon} alt="" />
             <h1
-              className="text-2xl text-white ml-2 font-bold"
+              className="ml-2 text-2xl font-bold text-white"
               style={{ filter: 'drop-shadow(0 0 2px #FFFFFF)' }}
             >
               MomoTalk
@@ -645,8 +645,8 @@ const MomoTalk = () => {
           </motion.div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden flex-row bg-white relative">
-          <div className="w-[80px] h-[100%] relative max-md:hidden">
+        <div className="relative flex flex-1 flex-row overflow-hidden bg-white">
+          <div className="relative h-[100%] w-[80px] max-md:hidden">
             <motion.div
               variants={{
                 open: {
@@ -660,7 +660,7 @@ const MomoTalk = () => {
                 },
               }}
               animate={isInit ? 'open' : 'hide'}
-              className="absolute top-0 left-0 w-full h-full bg-[#4b5b6f]"
+              className="absolute left-0 top-0 h-full w-full bg-[#4b5b6f]"
             ></motion.div>
 
             <motion.div
@@ -677,7 +677,7 @@ const MomoTalk = () => {
                 },
               }}
               animate={isInit ? 'open' : 'hide'}
-              className="z-40 relative overflow-hidden"
+              className="relative z-40 overflow-hidden"
             >
               <SideMenu
                 icon="user"
@@ -727,24 +727,24 @@ const MomoTalk = () => {
                   exit="hide"
                   // animate="open"
                   animate={studentListSideVisible ? 'open' : 'hidden'}
-                  className="flex flex-col md:w-[300px] bg-[#00000080] max-md:px-6 max-md:py-14 w-full left-0 right-0 top-0 z-[200] absolute md:relative h-[100%] overflow-y-auto"
+                  className="absolute left-0 right-0 top-0 z-[200] flex h-[100%] w-full flex-col overflow-y-auto bg-[#00000080] max-md:px-6 max-md:py-14 md:relative md:w-[300px]"
                 >
-                  <div className="flex flex-col bg-[#f3f7f8] overflow-hidden shadow-xl max-md:rounded-md">
-                    <div className="flex justify-between items-center px-4 bg-white h-[50px]">
+                  <div className="flex flex-col overflow-hidden bg-[#f3f7f8] shadow-xl max-md:rounded-md">
+                    <div className="flex h-[50px] items-center justify-between bg-white px-4">
                       <div>
                         <span className="text-md font-bold">
                           未读消息({totalUnreadMessageCount})
                         </span>
                       </div>
 
-                      <div className="flex">
+                      <div className="flex  ">
                         <div className="max-md:hidden">
                           <SkewButton
                             shadow
                             // onClick={() => {
                             //   setStudentListSideVisible(false)
                             // }}
-                            className="text-white bg-white py-0-important px-3"
+                            className="py-0-important bg-white px-3 text-white"
                           >
                             <BaFilter></BaFilter>
                           </SkewButton>
@@ -756,7 +756,7 @@ const MomoTalk = () => {
                               onClick={() => {
                                 setStudentListSideVisible(false)
                               }}
-                              className="text-white bg-white py-0-important px-3"
+                              className="py-0-important bg-white px-3 text-white"
                             >
                               <BiMinus color="#2a323e" fontSize={28}></BiMinus>
                             </SkewButton>
@@ -797,11 +797,11 @@ const MomoTalk = () => {
             </AnimatePresence>
           )}
 
-          <div className="flex flex-col flex-1 h-full relative">
+          <div className="relative flex h-full flex-1 flex-col">
             <div className="flex flex-1 flex-row overflow-hidden" id="chat-messages-box">
               <div
                 ref={chatMessagesBoxRef}
-                className="bg-white flex-1 flex-col px-2 overflow-y-auto"
+                className="flex-1 flex-col overflow-y-auto bg-white px-2"
               >
                 <Virtuoso
                   ref={virtuosoRef}
@@ -842,14 +842,14 @@ const MomoTalk = () => {
                     className="flex flex-row items-center p-2"
                   >
                     {isOne2OneChat && currentStudent && (
-                      <div className="w-[40px] h-[40px] rounded-full overflow-hidden shrink-0 relative">
+                      <div className="relative h-[40px] w-[40px] shrink-0 overflow-hidden rounded-full">
                         <img
-                          className="w-full h-full object-cover scale-[1.8]"
+                          className="h-full w-full scale-[1.8] object-cover"
                           src={`https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`}
                           alt=""
                         />
                         <div
-                          className="w-full h-full  absolute top-0 left-0 max-md:[hidden]"
+                          className="max-md:[hidden] absolute  left-0 top-0 h-full w-full"
                           onClick={() => setStudentListSideVisible(true)}
                         ></div>
                       </div>
@@ -870,15 +870,15 @@ const MomoTalk = () => {
                     </button> */}
 
                     <button
-                      className="relative text-xs rounded-sm m-2"
+                      className="relative m-2 rounded-sm text-xs"
                       onClick={() => {
                         setStampModalVisible(true)
                       }}
                     >
-                      <div className="w-6 h-6">
+                      <div className="h-6 w-6">
                         <motion.img
                           whileHover={{ scale: 1.1 }}
-                          className="w-full h-full object-cover"
+                          className="h-full w-full object-cover"
                           src="/images/stamp/01.png"
                           alt=""
                         />
@@ -901,7 +901,7 @@ const MomoTalk = () => {
                         animate={stampModalVisible ? 'open' : 'hidden'}
                       >
                         <div
-                          className="w-full h-full fixed top-0 left-0 z-40 "
+                          className="fixed left-0 top-0 z-40 h-full w-full "
                           onClick={(e) => {
                             e.stopPropagation()
                             setStampModalVisible(false)
@@ -924,20 +924,32 @@ const MomoTalk = () => {
                           // initial={{ scaleY: 1, y: 20 }}
                           // animate={{ scaleY: 1, y: 0 }}
                           // exit={{ scale: 1, opacity: 0, y: -20 }}
-                          className="absolute w-[300px] md:w-[440px] h-[300px] flex flex-wrap overflow-y-auto py-2 pl-2 shadow-xl rounded-md bg-white bottom-[140%] left-[0] z-50"
+                          className="absolute bottom-[140%] left-[0] z-50 flex h-[300px] w-[300px] flex-wrap overflow-y-auto rounded-md bg-white py-2 pl-2 shadow-xl md:w-[440px]"
                         >
                           {new Array(40).fill('').map((_, index) => (
                             <motion.img
                               onClick={(e) => handleSendStampMessage(e, index)}
+                              initial={{
+                                opacity: 0.4,
+                              }}
                               whileHover={{
                                 scale: 1.1,
                               }}
+                              whileInView={{
+                                // scale: 1.1,
+                                opacity: 1,
+                                transition: {
+                                  delay: 0.2,
+                                },
+                              }}
+                              viewport={{ once: true }}
                               key={index}
-                              className="w-[60px] h-[60px] mr-3 mb-3"
+                              className="mb-3 mr-3 h-[60px] w-[60px]"
                               src={`/images/stamp/${
                                 index < 9 ? '0' + (index + 1) : index + 1
                               }.png`}
-                              alt=""
+                              loading="lazy"
+                              alt="stamp"
                             ></motion.img>
                           ))}
                         </motion.div>
@@ -949,11 +961,11 @@ const MomoTalk = () => {
                       onKeyPress={(e) => e.key === 'Enter' && handleSendTextMessage()}
                       ref={inputRef}
                       maxLength={100}
-                      className="w-full h-[40px] p-2 border-1 border-momo  rounded-md text-[12px] outline-none caret-momo"
+                      className="border-1 h-[40px] w-full rounded-md border-momo p-2  text-[12px] caret-momo outline-none"
                       placeholder="请输入"
                     />
                     <SkewButton
-                      className="bg-momo ml-4 px-6 py-2 flex-shrink-0"
+                      className="ml-4 flex-shrink-0 bg-momo px-6 py-2"
                       onClick={handleSendTextMessage}
                     >
                       Send
@@ -964,7 +976,7 @@ const MomoTalk = () => {
             </div>
 
             {isOne2OneChat && currentStudentId === null && (
-              <div className="bg-white absolute w-full h-full left-0 top-0"></div>
+              <div className="absolute left-0 top-0 h-full w-full bg-white"></div>
             )}
 
             <AnimatePresence mode="wait">
@@ -979,7 +991,7 @@ const MomoTalk = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="bg-white absolute w-full h-full left-0 top-0 flex items-center justify-center z-50"
+                    className="absolute left-0 top-0 z-50 flex h-full w-full items-center justify-center bg-white"
                   >
                     <span className="text-md">Loading</span>
                   </motion.div>
@@ -988,7 +1000,7 @@ const MomoTalk = () => {
           </div>
 
           {isGroupChat && (
-            <div className="overflow-y-auto w-[180px] p-1">
+            <div className="w-[180px] overflow-y-auto p-1">
               <Reorder.Group axis="y" values={students} onReorder={() => {}}>
                 {students.map((student, index) => (
                   <Reorder.Item key={student.id} value={student}>
@@ -998,21 +1010,21 @@ const MomoTalk = () => {
                         opacity: 1,
                       }}
                       viewport={{ once: true }}
-                      className="flex mb-1 items-center"
+                      className="mb-1 flex items-center"
                     >
                       <div
-                        className={`w-[30px] h-[30px] rounded-full overflow-hidden ${
+                        className={`h-[30px] w-[30px] overflow-hidden rounded-full ${
                           student.is_online ? '' : 'grayscale'
                         }`}
                       >
                         <img
                           loading="lazy"
-                          className="w-full h-full object-cover"
+                          className="h-full w-full object-cover"
                           src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
                           alt={student.collection_texture}
                         />
                       </div>
-                      <span className="text-sm ml-1">{student.dev_name}</span>
+                      <span className="ml-1 text-sm">{student.dev_name}</span>
                     </motion.div>
                   </Reorder.Item>
                 ))}

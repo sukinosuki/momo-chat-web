@@ -56,7 +56,7 @@ const UserItem: React.FC<TProps> = (props) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="w-full h-full object-cover max-md:scale-[1.5]"
-              src={`https://schale.gg/images/student/collection/${student.collection_texture}.webp`}
+              src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
               alt=""
             />
           )}

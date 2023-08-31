@@ -1,3 +1,6 @@
+// import tailwind from 'prettier-plugin-tailwindcss'
+
+/** @type {import("prettier").Options} */
 module.exports = {
   semi: false,
   trailingComma: 'all',
@@ -5,6 +8,10 @@ module.exports = {
   printWidth: 90,
   tabWidth: 2,
   endOfLine: 'auto',
+  // plugins: [tailwind],
+  plugins: ['prettier-plugin-tailwindcss'],
+  // plugins: [require("prettier-plugin-tailwindcss")],
+  tailwindConfig: './tailwind.config.js',
 };
 
 // {
