@@ -7,7 +7,7 @@ import { debounce } from 'throttle-debounce'
 import api from '@/api'
 import Modal from '@/components/Modal'
 import SkewButton from '@/components/SkewButton'
-import authStore, { clear } from '@/store/authStore'
+import authStore from '@/store/authStore'
 import { Student } from '@/type/Student'
 import { toCatch } from '@/utils'
 
@@ -86,8 +86,7 @@ const Login = () => {
       if (err) return
       console.log('res ', res)
 
-      authStore.token = res
-      authStore.isLogin = true
+      authStore.setToken(res)
       localStorage.setItem('token', res)
 
       setModalStatus((prev) =>
@@ -107,12 +106,8 @@ const Login = () => {
 
   //
   const fetchStudent = async () => {
-    console.log('[fetchStudent]')
-
     const [err, res] = await toCatch(api.student.all())
     if (err) return
-    // console.log('res ', res)
-    // res.forEach((item, index) => (item.isOnline = index % 3 === 0))
 
     setStudents(res)
   }
@@ -126,7 +121,7 @@ const Login = () => {
   }
 
   const clearToken = () => {
-    clear()
+    authStore.clear()
     //
     localStorage.removeItem('token')
   }
@@ -137,14 +132,14 @@ const Login = () => {
   }, [])
 
   return (
-    <div className="w-full h-full absolute top-0 left-0 z-50 bg-[#00000080] flex items-center justify-center select-none font-[blueaka]">
-      <div className="flex flex-col justify-end items-center">
-        <div className="w-[300px] flex flex-col items-center justify-center">
+    <div className="absolute left-0 top-0 z-50 flex h-full w-full select-none items-center justify-center bg-[#00000080]">
+      <div className="flex flex-col items-center justify-end">
+        <div className="flex w-[300px] flex-col items-center justify-center">
           <motion.div
             onClick={() => setChooseStudentModalVisible(true)}
             animate="rest"
             whileHover="hover"
-            className="w-[100px] h-[100px] rounded-xl overflow-hidden relative cursor-pointer"
+            className="relative h-[100px] w-[100px] cursor-pointer overflow-hidden rounded-xl"
           >
             <AnimatePresence mode="wait">
               <motion.img
@@ -158,7 +153,7 @@ const Login = () => {
                 exit={{ opacity: 0, scale: 1.2, transition: { delay: 0.3 } }}
                 animate={{ opacity: 1, scale: 1 }}
                 initial={{ opacity: 0, scale: 1.2 }}
-                className="object-cover w-full h-full"
+                className="h-full w-full object-cover"
                 src={
                   selectedStudent
                     ? `https://schale.gg/images/student/icon/${selectedStudent.collection_texture}.png`
@@ -178,7 +173,7 @@ const Login = () => {
                   scale: 1,
                 },
               }}
-              className="absolute w-full h-full top-0 left-0 text-sm text-white flex items-center justify-center bg-[#00000080]"
+              className="absolute left-0 top-0 flex h-full w-full items-center justify-center bg-[#00000080] text-sm text-white"
             >
               选择学生
             </motion.div>
@@ -191,7 +186,7 @@ const Login = () => {
                 initial={{ opacity: 0, scaleY: 1.1, y: 20 }}
                 animate={{ opacity: 1, scaleY: 1, y: 0 }}
                 exit={{ opacity: 0, scaleY: 0.9, y: -20, transition: { delay: 0.2 } }}
-                className="text-white text-xl font-bold"
+                className="text-xl font-bold text-white"
               >
                 {selectedStudent?.dev_name || '请选择学生'}
               </motion.div>
@@ -199,7 +194,7 @@ const Login = () => {
           </div>
         </div>
 
-        <motion.div layout className="mt-8 flex flex-col md:flex-row w-full">
+        <motion.div layout className="mt-8 flex w-full flex-col md:flex-row">
           <SkewButton colored className="w-full py-2" onClick={handleLogin}>
             Login
           </SkewButton>

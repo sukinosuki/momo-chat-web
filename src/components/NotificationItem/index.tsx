@@ -7,14 +7,14 @@ const NOTIFICATION_TTL = 5000
 
 type TProps = {
   notification: Notification
-  removeNotif: (id: number) => void
+  remove: (id: number) => void
 }
 
 //
-const NotificationItem: React.FC<TProps> = ({ notification, removeNotif }) => {
+const NotificationItem: React.FC<TProps> = ({ notification, remove }) => {
   useEffect(() => {
     const timeoutRef = setTimeout(() => {
-      removeNotif(notification.id)
+      remove(notification.id)
     }, NOTIFICATION_TTL)
 
     return () => clearTimeout(timeoutRef)
@@ -27,13 +27,9 @@ const NotificationItem: React.FC<TProps> = ({ notification, removeNotif }) => {
       animate={{ y: 0, scale: 1 }}
       exit={{ x: '100%', opacity: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="p-2 flex items-start rounded gap-2 text-xs font-medium shadow-lg text-white bg-momo pointer-events-auto font-[blueaka] select-none"
+      className="pointer-events-auto flex select-none items-start gap-2 rounded bg-momo p-2 text-xs font-medium text-white shadow-lg"
     >
-      {/* <FiCheckSquare className=" mt-0.5" /> */}
       <span>{notification.message}</span>
-      {/* <button onClick={() => removeNotif(notification.id)} className="ml-auto mt-0.5">
-        x
-      </button> */}
     </motion.div>
   )
 }

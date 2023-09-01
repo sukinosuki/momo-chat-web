@@ -16,8 +16,6 @@ type TProps = {
 
 //
 const ChatMessageItem: React.FC<TProps> = (props) => {
-  console.log('<ChatMessageItem> render ')
-
   const {
     message: msg,
     index,
@@ -62,9 +60,8 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
       ? `https://schale.gg/images/student/icon/${authState?.user.collection_texture}.png`
       : isOne2OneChat
       ? `https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`
-      : `https://schale.gg/images/student/icon/${
-          studentsChatMap[msg.from_sid!]?.collection_texture
-        }.png`
+      : `https://schale.gg/images/student/icon/${studentsChatMap[msg.from_sid!]
+          ?.collection_texture}.png`
   }, [isMsgFromMine, isOne2OneChat, studentsChatMap])
 
   // 要显示的用户名
@@ -81,7 +78,7 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: { delay: 0.3 } }}
       key={`${msg.from_sid}_${msg.to_sid}_${msg.id || 0}_${index}`}
-      className={`flex px-0 md:px-2 mb-1 ${isMsgFromMine ? 'flex-row-reverse' : ''}`}
+      className={`flex px-0 pb-1 md:px-2 ${isMsgFromMine ? 'flex-row-reverse' : ''}`}
     >
       <div
         className={`w-[45px] ${
@@ -91,13 +88,13 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
         } overflow-hidden rounded-full`}
       >
         {isThisMsgAndPrevMsgIsFromSameStudent && isThisMsgAndPrevMsgIsSameType ? null : (
-          <img className="w-full h-full object-cover" src={messageAvatar} alt="avatar" />
+          <img className="h-full w-full object-cover" src={messageAvatar} alt="avatar" />
         )}
       </div>
 
       <div
-        className={`flex flex-col flex-1 ${
-          isMsgFromMine ? 'items-end mr-1 md:mr-2' : 'items-start ml-1 md:ml-2'
+        className={`flex flex-1 flex-col ${
+          isMsgFromMine ? 'mr-1 items-end md:mr-2' : 'ml-1 items-start md:ml-2'
         }`}
       >
         {(!isThisMsgAndPrevMsgIsFromSameStudent || !isThisMsgAndPrevMsgIsSameType) && (
@@ -108,14 +105,14 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
           <motion.img
             initial={{ opacity: 0.6 }}
             animate={{ opacity: 1 }}
-            className="w-[80px] h-[80px]"
+            className="h-[80px] w-[80px]"
             alt="stamp"
             src={`/images/stamp/${msg.message}.png`}
           ></motion.img>
         )}
 
         {isTextMsg && (
-          <div className="bg-[#4c5a6e] leading-none p-2 text-[12px] rounded-md text-white max-w-[300px]">
+          <div className="max-w-[300px] rounded-md bg-[#4c5a6e] p-2 text-[12px] leading-none text-white">
             {msg.message}
           </div>
         )}

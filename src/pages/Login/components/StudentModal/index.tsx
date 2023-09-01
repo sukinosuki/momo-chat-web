@@ -40,24 +40,21 @@ const StudentModal: React.FC<TProps> = (props) => {
             },
           }}
           animate={open ? 'open' : 'hidden'}
-          className="fixed w-full h-full top-0 left-0 flex items-center justify-center font-[blueaka]"
+          className="fixed left-0 top-0 flex h-full w-full items-center justify-center"
         >
           <motion.div
             initial="hidden"
             variants={{
               open: {
                 opacity: 1,
-                // y: 0,
                 scale: 1,
               },
               hidden: {
                 opacity: 0,
-                // y: 20,
-                // scale: 1.01,
               },
             }}
             animate={open ? 'open' : 'hidden'}
-            className="w-full h-full fixed top-0 left-0 z-40 bg-[#00000080] "
+            className="fixed left-0 top-0 z-40 h-full w-full bg-[#00000080] "
             onClick={props.onClose}
           ></motion.div>
 
@@ -66,28 +63,26 @@ const StudentModal: React.FC<TProps> = (props) => {
             variants={{
               open: {
                 opacity: 1,
-                // y: 0,
                 scale: 1,
               },
               hidden: {
                 opacity: 0,
-                // y: 20,
                 scale: 1.01,
               },
             }}
             animate={open ? 'open' : 'hidden'}
-            // initial={{ opacity: 0, scale: 1.1 }}
-            // animate={{
-            //   opacity: 1,
-            //   scale: 1,
-            //   transition: {
-            //     // delay: 1,
-            //     when: 'beforeChildren',
-            //     staggerChildren: 1,
-            //   },
-            // }}
-            // exit={{ opacity: 0, scale: 1.1 }}
-            className="w-[1280px] h-[90%] max-md:w-[340px] max-md:h-[80%] bg-white flex flex-wrap pr-0 py-4 pl-4 max-md:py-2 max-md:pl-2 rounded-md overflow-hidden overflow-y-auto z-50"
+            className="z-50 flex grid 
+            h-[90%] 
+            grid-cols-4
+            flex-wrap
+            gap-4
+            overflow-hidden
+             overflow-y-auto rounded-md bg-white p-4 max-md:h-[80%] 
+            max-md:w-[340px] max-md:gap-2
+            max-md:p-2 md:w-[768px] md:grid-cols-6 lg:w-[1024px] 
+            lg:grid-cols-8
+            xl:w-[1280px]
+            xl:grid-cols-10"
           >
             {students.map((student) => (
               <motion.div
@@ -104,13 +99,13 @@ const StudentModal: React.FC<TProps> = (props) => {
                   },
                 }}
                 viewport={{ once: true }}
-                className="relative w-[110px] h-[130px] max-md:w-[74px] max-md:h-[100px] mr-4 mb-4 max-md:mr-2 max-md:mb-2"
+                className="relative h-[130px] max-md:h-[100px]  "
                 key={student.id}
               >
                 <motion.div
                   whileHover="hover"
                   animate="rest"
-                  className="rounded-md overflow-hidden absolute w-full h-full cursor-pointer"
+                  className="absolute h-full w-full cursor-pointer overflow-hidden rounded-md"
                 >
                   <motion.img
                     variants={{
@@ -121,15 +116,13 @@ const StudentModal: React.FC<TProps> = (props) => {
                               scale: 1.2,
                             },
                     }}
-                    className="w-full h-full object-cover"
-                    // src={`https://schale.gg/images/student/collection/${student.collection_texture}.webp`}
+                    className="h-full w-full object-cover"
                     src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
                     alt={student.dev_name}
                     loading="lazy"
                   />
 
-                  <div className="absolute bottom-0 left-0 flex flex-col items-center justify-center w-full bg-[#ffffffcc]">
-                    {/* <span className="text-md text-black-400">Aru</span> */}
+                  <div className="absolute bottom-0 left-0 flex w-full flex-col items-center justify-center bg-[#ffffffcc]">
                     <span className="text-md text-black-400">{student.dev_name}</span>
                   </div>
                   <motion.div
@@ -149,7 +142,7 @@ const StudentModal: React.FC<TProps> = (props) => {
                               scale: 1,
                             },
                     }}
-                    className="absolute w-full h-full top-0 left-0 text-sm text-white flex items-center justify-center bg-[#00000080]"
+                    className="absolute left-0 top-0 flex h-full w-full items-center justify-center bg-[#00000080] text-sm text-white"
                   >
                     {student.is_online || student.is_latest_login
                       ? '不可选择'

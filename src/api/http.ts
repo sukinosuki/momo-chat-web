@@ -8,14 +8,10 @@ import { AppResponse } from '../type/AppResponse'
 
 const BaseUrl = import.meta.env.VITE_API_BASE_URL
 
-const handleJsonError = async (json: Promise<AppResponse>) => {
+const handleJsonError = async (res: AppResponse) => {
   setTimeout(async () => {
-    const data = await json
-    // console.log('[get] data ', data)
-    // console.log('[get] data ', typeof data)
-
-    if (data.code !== 0) {
-      const msg = data.msg || JSON.stringify(data)
+    if (res.code !== 0) {
+      const msg = res.msg || JSON.stringify(res)
       if (modalStore.store.open) {
         notificationStore.add(msg)
       } else {
@@ -55,16 +51,17 @@ const http = <T = null>(
   if (method === 'POST' || method === 'PUT') {
     body = JSON.stringify(data)
   }
+
   return fetch(url, {
     method: method,
     headers: {
-      Authorization: authStore.token,
+      Authorization: authStore.state.token,
       ...headers,
     },
     body: body,
   })
-    .then((res) => {
-      const json = res.json()
+    .then(async (res) => {
+      const json = await res.json()
 
       handleJsonError(json)
 
@@ -77,32 +74,18 @@ const http = <T = null>(
 }
 
 //
-const get = <T = null>(url: string, params = {}): Promise<AppResponse<T>> => {
+const get = <T = null>(
+  url: string,
+  params?: Record<any, any>,
+): Promise<AppResponse<T>> => {
   console.log('[get] params ', params)
 
-  const query = qs.stringify(params)
-  console.log('[get] query ', query)
-
-  const _url = `${BaseUrl + url}?${query}`
+  let _url = BaseUrl + url
+  if (params) {
+    _url += `?${qs.stringify(params)}`
+  }
 
   return http('GET', _url)
-  // return fetch(_url, {
-  //   method: 'GET',
-  //   headers: {
-  //     Authorization2: authStore.token,
-  //   },
-  // })
-  //   .then((res) => {
-  //     const json = res.json()
-
-  //     handleJsonError(json)
-
-  //     return json
-  //   })
-  //   .catch((err: Error) => {
-  //     handleError(err)
-  //     return err
-  //   })
 }
 
 //

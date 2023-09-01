@@ -23,26 +23,26 @@ const Modal: React.FC<TProps> = (props) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full h-full fixed top-0 left-0 z-[9999] flex items-center justify-center font-[blueaka]"
+            className="fixed left-0 top-0 z-[9999] flex h-full w-full items-center justify-center font-[blueaka]"
           >
-            <div className="w-full h-full fixed top-0 left-0 z-50 bg-[#00000080]"></div>
+            <div className="fixed left-0 top-0 z-50 h-full w-full bg-[#00000080]"></div>
 
             <motion.div
               initial={{ scale: 0.9, y: 100 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 1.1, y: -20 }}
-              className="flex flex-col w-[400px] max-md:w-[80%] rounded-xl overflow-hidden bg-white z-50"
+              className="z-50 flex w-[400px] flex-col overflow-hidden rounded-xl bg-white max-md:w-[80%]"
             >
-              <div className="bg-white h-[40px] flex justify-center items-center">
+              <div className="flex h-[40px] items-center justify-center bg-white">
                 <h3 className="text-md font-bold">{title || 'Notice'}</h3>
               </div>
 
-              <div className="p-4 overflow-hidden">
-                <div className="overflow-y-auto max-h-[400px] text-md text-center">
+              <div className="overflow-hidden p-4">
+                <div className="text-md max-h-[400px] overflow-y-auto text-center">
                   {content}
                 </div>
 
-                <div className="flex mt-8">
+                <div className="mt-8 flex">
                   {props.onClose && (
                     <SkewButton
                       onClick={props.onClose}
@@ -54,7 +54,7 @@ const Modal: React.FC<TProps> = (props) => {
                   )}
 
                   {props.onOk && (
-                    <SkewButton colored className="flex-1 ml-4 py-2" onClick={props.onOk}>
+                    <SkewButton colored className="ml-4 flex-1 py-2" onClick={props.onOk}>
                       OK
                     </SkewButton>
                   )}

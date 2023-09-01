@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import authStore from '@/store/authStore'
@@ -7,15 +7,14 @@ import modalStore, { ModalType } from '@/store/modalStore'
 type TProps = {
   children: React.ReactNode
 }
+
 //
 const BaseLayout: React.FC<TProps> = (props) => {
-  const navigate = useNavigate()
-  const location = useLocation()
   const { children } = props
 
   console.log('<BaseLayout> render ', authStore)
 
-  if (!authStore.isLogin) {
+  if (!authStore.state.isLogin) {
     console.log('<BaseLayout> 请先登录')
 
     // navigate('/login')
@@ -23,20 +22,6 @@ const BaseLayout: React.FC<TProps> = (props) => {
 
     return null
   }
-  // const init = async () => {
-  //   const token = localStorage.getItem('token')
-  //   console.log('<BaseLayout> [init] token ', token)
-
-  //   if (location.pathname === '/login') return
-
-  //   if (!token) {
-  //     navigate('/login')
-  //   }
-  // }
-
-  // useEffect(() => {
-  //   init()
-  // }, [])
 
   return <>{children}</>
 }

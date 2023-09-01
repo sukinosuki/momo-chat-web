@@ -35,9 +35,9 @@ const SkewButton: React.FC<TProps> = (props) => {
       }}
       className={[
         className,
-        `skew-button rounded-md -skew-x-[15deg] ${
+        `skew-button -skew-x-[15deg] rounded-md ${
           colored ? 'bg-[#3bc7ff]' : 'bg-[#c5e0fe]'
-        } ${shadow ? 'shadow-md' : ''} text-white text-[14px]`,
+        } ${shadow ? 'shadow-md' : ''} text-[14px] text-white`,
       ].join(' ')}
       {...rest}
     >

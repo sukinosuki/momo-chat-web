@@ -1,5 +1,5 @@
 import { motion, useInView } from 'framer-motion'
-import React, { useEffect, useMemo, useRef } from 'react'
+import React, { useMemo, useRef } from 'react'
 
 import authStore from '@/store/authStore'
 
@@ -19,7 +19,7 @@ const UserItem: React.FC<TProps> = (props) => {
   const inView = useInView(ref, { once: true })
 
   const isMe = useMemo(() => {
-    return authStore.user.id === student.id
+    return authStore.state.user.id === student.id
   }, [authStore, student])
 
   const studentName = useMemo(() => {
@@ -31,10 +31,6 @@ const UserItem: React.FC<TProps> = (props) => {
     return `${devName}(${id})(${is_online ? '在线' : '离线'})`
   }, [student, isMe])
 
-  useEffect(() => {
-    if (inView) {
-    }
-  }, [inView])
   return (
     <motion.div
       ref={ref}
@@ -46,38 +42,39 @@ const UserItem: React.FC<TProps> = (props) => {
         },
       }}
       viewport={{ once: true }}
-      className="user-item select-none cursor-pointer font-[blueaka]"
+      className="user-item cursor-pointer select-none"
       onClick={props.onClick}
     >
       <div className={`flex flex-row p-2 ${active ? 'bg-[#dae5e9]' : ''}`}>
-        <div className="w-[60px] h-[60px] max-md:w-[40px] max-md:h-[40px] bg-slate-300 rounded-full overflow-hidden shrink-0">
+        <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-full bg-slate-300 max-md:h-[40px] max-md:w-[40px]">
           {inView && (
             <motion.img
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="w-full h-full object-cover max-md:scale-[1.5]"
+              className="h-full w-full object-cover max-md:scale-[1.5]"
               src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
-              alt=""
+              alt={student.collection_texture}
             />
           )}
         </div>
 
-        <div className="flex flex-col justify-between ml-2 flex-1 h-[60px] max-md:h-[40px] overflow-hidden">
+        <div className="ml-2 flex h-[60px] flex-1 flex-col justify-between overflow-hidden max-md:h-[40px]">
           <span
             className={`${
               student.is_online ? 'text-[#2a323e]' : 'text-[#9ca5ab]'
-            } text-xl max-md:text-sm font-bold`}
+            } text-xl font-bold max-md:text-sm`}
           >
             {studentName}
           </span>
-          <span className="text-[#9ca5ab] text-md max-md:text-xs text-ellipsis truncate">
+          {/* TODO */}
+          <span className="text-md truncate text-ellipsis text-[#9ca5ab] max-md:text-xs">
             自行车伙伴招募中……(1/5)
           </span>
         </div>
 
-        <div className="flex items-center shrink-0">
+        <div className="flex shrink-0 items-center">
           {student.unread_count ? (
-            <span className="bg-[#fb4719] text-white px-[6px] rounded-sm">
+            <span className="rounded-sm bg-[#fb4719] px-[6px] text-white">
               {student.unread_count}
             </span>
           ) : null}

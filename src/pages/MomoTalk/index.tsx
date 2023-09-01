@@ -1,8 +1,7 @@
-import { AnimatePresence, motion, Reorder } from 'framer-motion'
-import html2canvas from 'html2canvas'
+import { AnimatePresence, motion } from 'framer-motion'
 import update from 'immutability-helper'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { BiDownload, BiMinus } from 'react-icons/bi'
+import { BiMinus } from 'react-icons/bi'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import { useSnapshot } from 'valtio'
 
@@ -11,8 +10,6 @@ import { API_ChatMessage } from '@/api/chatMessage'
 import { BaFilter } from '@/components/icons'
 import SkewButton from '@/components/SkewButton'
 import StudentItem from '@/components/StudentItem'
-import icon from '@/icon.svg'
-import SideMenu from '@/pages/MomoTalk/components/SideMenu'
 import authStore from '@/store/authStore'
 import {
   Message,
@@ -24,7 +21,11 @@ import { PageStatus } from '@/type/PageStatus'
 import { Student } from '@/type/Student'
 import { sleep, toCatch } from '@/utils'
 
+import BoxHeader from './components/BoxHeader'
+import BoxLoading from './components/BoxLoading'
 import ChatMessageItem from './components/ChatMessageItem'
+import GroupMemberList from './components/GroupMemberList'
+import SideBar from './components/SideBar'
 import WsClosedModal from './components/WsClosedModal'
 
 let _currentStudent: Student | null = null
@@ -35,16 +36,6 @@ let _messageScrollTimer: number | null = null
 let _groupMessageCount = 0
 let _reconnectWebsocketTimer: number | null = null
 
-// const messages = new Array(10000).fill('').map((_, index) => ({
-//   type: 1,
-//   msg_type: 1,
-//   message: `hello-${index}`,
-//   from_sid: 10000,
-//   to_sid: 0,
-//   send_key: index,
-//   send_status: 2,
-//   id: index,
-// }))
 enum WsStatus {
   CONNECTED = 1,
   CLOSED = 2,
@@ -54,7 +45,7 @@ enum WsStatus {
 const MomoTalk = () => {
   console.log('<MomoTalk> render')
 
-  const authState = useSnapshot(authStore)
+  const authState = useSnapshot(authStore.state)
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null)
   const [students, setStudents] = useState<Student[]>([])
 
@@ -71,7 +62,6 @@ const MomoTalk = () => {
   const wsRef = useRef<WebSocket>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const chatMessagesBoxRef = useRef<HTMLDivElement>(null)
 
   const [isGroupChat, isOne2OneChat] = useMemo(() => {
     _isGroupChat = tabIndex === 1
@@ -91,6 +81,7 @@ const MomoTalk = () => {
     return _currentStudent
   }, [studentsChatMap, currentStudentId])
 
+  console.log('currentStudent ', currentStudent)
   const totalUnreadMessageCount = useMemo(() => {
     return students.reduce((acc: number, next) => {
       acc += next.unread_count
@@ -147,8 +138,6 @@ const MomoTalk = () => {
 
   //
   const fetchMessages = async (sid: number, messageId: number | null = null) => {
-    // await sleep(2000)
-
     const sid_max = authState.user.id > sid ? authState.user.id : sid
     const sid_min = authState.user.id < sid ? authState.user.id : sid
 
@@ -189,8 +178,6 @@ const MomoTalk = () => {
 
     if (sid === currentStudentId) {
       setTimeout(() => {
-        console.log('_currentStudent?.messages ', _currentStudent?.messages)
-
         virtuosoRef.current?.scrollToIndex?.({
           index: _currentStudent?.messages?.length || 999,
         })
@@ -211,7 +198,7 @@ const MomoTalk = () => {
       }
 
       setStudents((prev) => {
-        const index = prev.findIndex((s) => s.id === authStore.user.id)
+        const index = prev.findIndex((s) => s.id === authStore.state.user.id)
         if (index === -1) return prev
         return update(prev, {
           [index]: {
@@ -224,11 +211,7 @@ const MomoTalk = () => {
     }
 
     wsRef.current.onmessage = (e) => {
-      console.log('[onmessage] 当前用户 currentStudent ', _currentStudent)
-      console.log('[onmessage] 当前用户 currentStudentId ', currentStudentId)
-      console.log('[onmessage] 当前用户 id', _currentStudent?.id)
       const message = JSON.parse(e.data) as Message
-      console.log('[onmessage] message ', message)
 
       switch (message.type) {
         // 收到内容消息
@@ -241,7 +224,7 @@ const MomoTalk = () => {
             if (message.from_sid === _currentStudent?.id) {
               sendRead(_currentStudent!.id)
 
-              // 本地未读数+1
+              // 未读数+1
             } else {
               setStudents((prev) => {
                 const findIndex = prev.findIndex((item) => item.id === message.from_sid)
@@ -277,14 +260,22 @@ const MomoTalk = () => {
             })
           }
 
-          // 判断虚拟列表是否在底部附近位置才滚动到最后一条记录位置
-          const isAtBottom =
-            chatMessagesBoxRef.current!.clientHeight +
-              chatMessagesBoxRef.current!.scrollTop >
-            chatMessagesBoxRef.current!.scrollHeight - 120
+          // TODO: 判断虚拟列表是否在底部附近位置才滚动到最后一条记录位置
 
           if (_messageScrollTimer) {
             clearTimeout(_messageScrollTimer)
+          }
+
+          let isAtBottom = false
+
+          const element = document.querySelector('div[data-test-id="virtuoso-item-list"]')
+          if (element) {
+            console.log('element!.style.paddingBottom ', element!.style.paddingBottom)
+
+            const paddingBottom = Number(element?.style?.paddingBottom?.replace('px', ''))
+            if (paddingBottom <= 200) {
+              isAtBottom = true
+            }
           }
 
           _messageScrollTimer = setTimeout(() => {
@@ -296,6 +287,7 @@ const MomoTalk = () => {
                 })
               }
             } else if (_isGroupChat) {
+              // TODO
               if (isAtBottom) {
                 virtuosoRef.current?.scrollToIndex?.({
                   index: _groupMessageCount,
@@ -373,8 +365,6 @@ const MomoTalk = () => {
     }
 
     wsRef.current.onclose = () => {
-      console.log('ws close')
-
       setWsStatus(WsStatus.CLOSED)
 
       if (_reconnectWebsocketTimer) {
@@ -387,7 +377,7 @@ const MomoTalk = () => {
 
       // TODO:
       setStudents((prev) => {
-        const index = prev.findIndex((s) => s.id === authStore.user.id)
+        const index = prev.findIndex((s) => s.id === authStore.state.user.id)
 
         if (index === -1) return prev
 
@@ -401,8 +391,8 @@ const MomoTalk = () => {
       })
     }
 
-    wsRef.current.onerror = () => {
-      console.log('ws error')
+    wsRef.current.onerror = (e) => {
+      console.log('ws error ', e)
     }
 
     // return ws
@@ -414,12 +404,11 @@ const MomoTalk = () => {
     const toSid = isOne2OneChat ? currentStudent!.id : 0
 
     const message: Message = {
-      // to_sid: currentStudent?.id,
       to_sid: toSid,
       from_sid: authState.user.id,
       message: messageText,
       type: MessageActionType.NORMAL,
-      // msgType: MessageContentType.TEXT,
+
       msg_type: msgType,
       send_key: new Date().getTime().toString(),
       send_status: SendStatus.SENDING,
@@ -444,6 +433,8 @@ const MomoTalk = () => {
         }),
       )
     }
+
+    console.log('virtuosoRef.current. ', virtuosoRef.current)
 
     setTimeout(() => {
       virtuosoRef.current?.scrollToIndex?.({
@@ -482,7 +473,8 @@ const MomoTalk = () => {
   const init = async () => {
     const [err, res] = await toCatch(api.auth.getAuth())
     if (err) return
-    authStore.user = res
+
+    authStore.setUser(res)
     await initWs()
 
     await fetchStudents()
@@ -540,7 +532,10 @@ const MomoTalk = () => {
       }),
     )
 
-    if (currentStudent._messageLoadStatus === null) {
+    if (
+      currentStudent._messageLoadStatus === null ||
+      currentStudent._messageLoadStatus === PageStatus.FAILED
+    ) {
       setStudentChatMap((prev) =>
         update(prev, {
           [currentStudent.id]: {
@@ -575,122 +570,26 @@ const MomoTalk = () => {
   }, [])
 
   return (
-    <motion.div key="home" className="flex h-full w-full items-center justify-center">
+    <motion.div
+      key="home"
+      className="flex h-full w-full items-center justify-center bg-[#00000080]"
+    >
       <motion.div
         drag
         dragElastic={0.05}
         dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        className="relative m-auto flex h-[100%] w-[100%] flex-col overflow-hidden bg-white md:h-[80%] md:w-[1200px] md:rounded-2xl"
+        className="relative m-auto flex h-[100%] w-[100%] flex-col overflow-hidden bg-white md:h-[80%] md:w-[780px] md:rounded-2xl lg:w-[1024px] xl:w-[1200px]"
       >
-        <motion.div
-          variants={{
-            hide: {
-              height: 0,
-              // transition: {
-              //   delay: 0.5,
-              // },
-            },
-            open: {
-              height: '100%',
-            },
-          }}
-          animate={isInit ? 'hide' : 'open'}
-          className="absolute left-0 top-0 z-50 z-[500] flex h-full w-full items-center justify-center overflow-hidden bg-[#fc8da2]"
-        >
-          <motion.div
-            variants={{
-              hide: {
-                scale: 0.5,
-                opacity: 0.6,
-              },
-              open: {
-                opacity: 1,
-                scale: 1.2,
-                transition: {
-                  delay: 0.3,
-                },
-              },
-            }}
-            animate={isInit ? 'hide' : 'open'}
-            className="flex flex-col items-center justify-center text-center"
-          >
-            <img className="h-[100px] w-[100px]" src={icon} alt=""></img>
-            <span className="mt-2 text-2xl font-bold text-white">MomoTalk</span>
-          </motion.div>
-        </motion.div>
+        <BoxLoading isInit={isInit}></BoxLoading>
 
-        <div className="flex h-[48px] flex-row items-center  justify-center bg-[linear-gradient(#ff899e,#f79bac)] px-4 md:h-[60px] md:justify-start">
-          <motion.div
-            variants={{
-              hide: {
-                y: '40%',
-              },
-              open: {
-                y: 0,
-                transition: {
-                  delay: 0.2,
-                },
-              },
-            }}
-            animate={isInit ? 'open' : 'hide'}
-            className="flex flex-row items-center"
-          >
-            <img className="h-[35px] w-[35px]" src={icon} alt="" />
-            <h1
-              className="ml-2 text-2xl font-bold text-white"
-              style={{ filter: 'drop-shadow(0 0 2px #FFFFFF)' }}
-            >
-              MomoTalk
-            </h1>
-          </motion.div>
-        </div>
+        <BoxHeader isInit={isInit}></BoxHeader>
 
         <div className="relative flex flex-1 flex-row overflow-hidden bg-white">
-          <div className="relative h-[100%] w-[80px] max-md:hidden">
-            <motion.div
-              variants={{
-                open: {
-                  width: '100%',
-                  transition: {
-                    delay: 0.2,
-                  },
-                },
-                hide: {
-                  width: 0,
-                },
-              }}
-              animate={isInit ? 'open' : 'hide'}
-              className="absolute left-0 top-0 h-full w-full bg-[#4b5b6f]"
-            ></motion.div>
-
-            <motion.div
-              initial="hide"
-              variants={{
-                open: {
-                  opacity: 1,
-                  transition: {
-                    delay: 0.5,
-                  },
-                },
-                hide: {
-                  opacity: 0,
-                },
-              }}
-              animate={isInit ? 'open' : 'hide'}
-              className="relative z-40 overflow-hidden"
-            >
-              <SideMenu
-                icon="user"
-                active={isOne2OneChat}
-                onClick={() => setTabIndex(0)}
-              />
-              <SideMenu
-                icon="message"
-                active={isGroupChat}
-                onClick={() => setTabIndex(1)}
-              />
-            </motion.div>
-          </div>
+          <SideBar
+            isInit={isInit}
+            activeIndex={tabIndex}
+            onIndexChange={(index) => setTabIndex(index)}
+          ></SideBar>
 
           {isOne2OneChat && (
             <AnimatePresence>
@@ -741,9 +640,9 @@ const MomoTalk = () => {
                         <div className="max-md:hidden">
                           <SkewButton
                             shadow
-                            // onClick={() => {
-                            //   setStudentListSideVisible(false)
-                            // }}
+                            onClick={() => {
+                              // TODO
+                            }}
                             className="py-0-important bg-white px-3 text-white"
                           >
                             <BaFilter></BaFilter>
@@ -766,14 +665,7 @@ const MomoTalk = () => {
                     </div>
 
                     <div className="flex-1 overflow-y-auto">
-                      {/* <Reorder.Group
-                  axis="y"
-                  values={allStudent}
-                  draggable={false}
-                  onReorder={() => {}}
-                > */}
                       {students.map((student, index) => (
-                        // <Reorder.Item draggable={false} drag key={student.id} value={student}>
                         <StudentItem
                           student={student}
                           key={student.id}
@@ -781,15 +673,15 @@ const MomoTalk = () => {
                           onClick={() => {
                             if (_currentStudentLock) return
                             _currentStudentLock = true
+
                             setCurrentStudentId(student.id)
+
                             setTimeout(() => {
                               _currentStudentLock = false
                             }, 700)
                           }}
                         ></StudentItem>
                       ))}
-                      {/* </Reorder.Item> */}
-                      {/* </Reorder.Group> */}
                     </div>
                   </div>
                 </motion.div>
@@ -799,13 +691,11 @@ const MomoTalk = () => {
 
           <div className="relative flex h-full flex-1 flex-col">
             <div className="flex flex-1 flex-row overflow-hidden" id="chat-messages-box">
-              <div
-                ref={chatMessagesBoxRef}
-                className="flex-1 flex-col overflow-y-auto bg-white px-2"
-              >
+              <div className="flex-1 flex-col overflow-y-auto bg-white">
                 <Virtuoso
                   ref={virtuosoRef}
                   style={{ height: '100%' }}
+                  key={currentStudent?.id}
                   data={isOne2OneChat ? currentStudent?.messages || [] : groupMessages}
                   itemContent={(index, msg) => (
                     <ChatMessageItem
@@ -846,7 +736,7 @@ const MomoTalk = () => {
                         <img
                           className="h-full w-full scale-[1.8] object-cover"
                           src={`https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`}
-                          alt=""
+                          alt={currentStudent?.collection_texture}
                         />
                         <div
                           className="max-md:[hidden] absolute  left-0 top-0 h-full w-full"
@@ -854,20 +744,6 @@ const MomoTalk = () => {
                         ></div>
                       </div>
                     )}
-
-                    {/* <button
-                      onClick={() => {
-                        // TODO
-                        html2canvas(
-                      
-                          document.getElementById('chat-messages-box'),
-                        ).then((canvas) => {
-                          document.body.appendChild(canvas)
-                        })
-                      }}
-                    >
-                      <BiDownload color="#2a323e" fontSize={28}></BiDownload>
-                    </button> */}
 
                     <button
                       className="relative m-2 rounded-sm text-xs"
@@ -880,7 +756,7 @@ const MomoTalk = () => {
                           whileHover={{ scale: 1.1 }}
                           className="h-full w-full object-cover"
                           src="/images/stamp/01.png"
-                          alt=""
+                          alt="stamp"
                         />
                       </div>
                       <motion.div
@@ -921,9 +797,6 @@ const MomoTalk = () => {
                             },
                           }}
                           animate={stampModalVisible ? 'open' : 'hidden'}
-                          // initial={{ scaleY: 1, y: 20 }}
-                          // animate={{ scaleY: 1, y: 0 }}
-                          // exit={{ scale: 1, opacity: 0, y: -20 }}
                           className="absolute bottom-[140%] left-[0] z-50 flex h-[300px] w-[300px] flex-wrap overflow-y-auto rounded-md bg-white py-2 pl-2 shadow-xl md:w-[440px]"
                         >
                           {new Array(40).fill('').map((_, index) => (
@@ -987,7 +860,6 @@ const MomoTalk = () => {
                 ) && (
                   <motion.div
                     key={currentStudent.id || 0}
-                    // layoutId="underline"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -1000,36 +872,7 @@ const MomoTalk = () => {
           </div>
 
           {isGroupChat && (
-            <div className="w-[180px] overflow-y-auto p-1">
-              <Reorder.Group axis="y" values={students} onReorder={() => {}}>
-                {students.map((student, index) => (
-                  <Reorder.Item key={student.id} value={student}>
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      whileInView={{
-                        opacity: 1,
-                      }}
-                      viewport={{ once: true }}
-                      className="mb-1 flex items-center"
-                    >
-                      <div
-                        className={`h-[30px] w-[30px] overflow-hidden rounded-full ${
-                          student.is_online ? '' : 'grayscale'
-                        }`}
-                      >
-                        <img
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                          src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
-                          alt={student.collection_texture}
-                        />
-                      </div>
-                      <span className="ml-1 text-sm">{student.dev_name}</span>
-                    </motion.div>
-                  </Reorder.Item>
-                ))}
-              </Reorder.Group>
-            </div>
+            <GroupMemberList className="w-[180px]" students={students}></GroupMemberList>
           )}
         </div>
       </motion.div>

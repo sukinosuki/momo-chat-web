@@ -4,24 +4,32 @@ import { useNavigate, useNavigation, useRouteError } from 'react-router-dom'
 import Modal from '@/components/Modal'
 
 export default function ErrorPage() {
-  const error = useRouteError() as { statusText: string; status: number; data: string }
-  console.error(error)
+  const error = useRouteError() as {
+    statusText: string
+    status: number
+    data: string
+    message: string
+  }
+
+  console.log('<ErrorPage> error ', error)
+
   const navigate = useNavigate()
-  // const navigation  =useNavigation()
 
   //
   const errorMsg = useMemo(() => {
     const { statusText, status, data } = error
 
-    return `${status}: ${statusText} | ${data}`
+    return status ? `${status}: ${statusText} | ${data}` : error.toString()
   }, [error])
 
   const handleOk = () => {
+    // TODO:
     navigate('/', {
       replace: true,
     })
     //
   }
+
   return (
     <div id="error-page">
       {/* <h1>Oops!</h1>

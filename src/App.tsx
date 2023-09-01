@@ -71,7 +71,6 @@ const router = createBrowserRouter([
 ])
 
 function App() {
-  const token = localStorage.getItem('token')
   const notificationState = useSnapshot(notificationStore.store)
 
   const [preloadProgress, setPreloadProgress] = useState(0)
@@ -81,10 +80,7 @@ function App() {
     return (preloadProgress * 100).toFixed(0)
   }, [preloadProgress])
 
-  if (token) {
-    authStore.token = token
-    authStore.isLogin = true
-  }
+  //
   const handlePreload = () => {
     console.log('[handlePreload] preloadjs ', preloadjs)
     const preload = new preloadjs.LoadQueue()
@@ -153,6 +149,11 @@ function App() {
   }
 
   useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      authStore.setToken(token)
+    }
+
     handlePreload()
   }, [])
 
@@ -169,19 +170,19 @@ function App() {
                 delay: 0.3,
               },
             }}
-            className="fixed top-0 left-0 w-screen h-screen z-[999] bg-white flex items-center justify-center"
+            className="fixed left-0 top-0 z-[999] flex h-screen w-screen items-center justify-center bg-white"
           >
             <span className="text-sm">资源加载中{preloadProgressPercent}%</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-1 w-72 fixed top-2 right-2 z-[999] pointer-events-none">
+      <div className="pointer-events-none fixed right-2 top-2 z-[999] flex w-72 flex-col gap-1">
         <AnimatePresence>
           {notificationState.notifications.map((n) => (
             <NotificationItem
               notification={n}
-              removeNotif={(id) => notificationStore.remove(id)}
+              remove={(id) => notificationStore.remove(id)}
               key={n.id}
             />
           ))}

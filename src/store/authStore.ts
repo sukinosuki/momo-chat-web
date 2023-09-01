@@ -8,16 +8,31 @@ type Store = {
   user: Student
 }
 
-const authStore = proxy<Store>({
+const state = proxy<Store>({
   isLogin: false,
   token: '',
   user: {} as Student,
 })
 
-export const clear = () => {
-  authStore.isLogin = false
-  authStore.token = ''
-  authStore.user = {} as Student
+const clear = () => {
+  state.isLogin = false
+  state.token = ''
+  state.user = {} as Student
 }
 
-export default authStore
+const setToken = (token: string) => {
+  state.token = token
+  state.isLogin = true
+}
+
+const setUser = (user: Student) => {
+  state.user = user
+  state.isLogin = true
+}
+
+export default {
+  state,
+  clear,
+  setToken,
+  setUser,
+}
