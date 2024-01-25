@@ -39,7 +39,7 @@ const GroupMemberList: React.FC<TProps> = (props) => {
                 <img
                   loading="lazy"
                   className="h-full w-full object-cover"
-                  src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
+                  src={`https://schale.gg/images/student/icon/${student.id}.webp`}
                   alt={student.collection_texture}
                 />
               </div>

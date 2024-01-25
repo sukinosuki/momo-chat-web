@@ -117,7 +117,7 @@ const StudentModal: React.FC<TProps> = (props) => {
                             },
                     }}
                     className="h-full w-full object-cover"
-                    src={`https://schale.gg/images/student/icon/${student.collection_texture}.png`}
+                    src={`https://schale.gg/images/student/icon/${student.id}.webp`}
                     alt={student.dev_name}
                     loading="lazy"
                   />

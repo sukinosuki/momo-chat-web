@@ -156,7 +156,7 @@ const Login = () => {
                 className="h-full w-full object-cover"
                 src={
                   selectedStudent
-                    ? `https://schale.gg/images/student/icon/${selectedStudent.collection_texture}.png`
+                    ? `https://schale.gg/images/student/icon/${selectedStudent.id}.webp`
                     : 'https://schale.gg/images/schale.png'
                 }
               ></motion.img>

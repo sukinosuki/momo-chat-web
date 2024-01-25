@@ -1,37 +1,38 @@
-# Vite + React + Typescript + Eslint + Prettier
+# MomoTalk-Like-Chat
 
-A starter for React with Typescript with the fast Vite and all static code testing with Eslint and formatting with Prettier.
+Please forgiving my poor English.
 
-![Vite + React + Typescript + Eslint + Prettier](/resources/screenshot.png)
+# Preview
 
-I found out about Vite and I wanted to have a boilerplate for the technologies that I use. You can find more about these in the following links: [Vite](https://github.com/vitejs/vite), [React](https://reactjs.org/), [Typescript](https://www.typescriptlang.org/), [Eslint](https://eslint.org/), [Prettier](https://prettier.io/).
+![01](./snapshot/01.png)
+![03](./snapshot/03.png)
+![02](./snapshot/02.png)
 
-## Installation
+# Features
 
-Clone the repo and run `yarn install`
+- one to one chat
+- group chat
+- send stamp
+- unread message count
 
-or Run command
+# TODO
 
-```
-npx degit TheSwordBreaker/vite-reactts-eslint-prettier project-name
-```
+- load group history chat
 
-## Start
+# Start
 
-After the successfull installation of the packages: `yarn dev`
+1. npm install
 
-## Steps in Vscode
+2. npm run dev
 
-#### (works with better with this template)
+3. you should also run the server side
 
-1. Install Eslint and prettier extension for vs code.
-2. Make Sure Both are enabled
-3. Make sure all packages are Installed. (Mostly Eslint and prettier in node_modules)
-4. Enable formatOnSave of vs code
-5. Open a .tsx file and check if the bottom right corners of vs code have Eslint and Prettier with a double tick
+# Credits
 
-![Screenshot (253)_LI](https://user-images.githubusercontent.com/52120562/162486286-7383a737-d555-4f9b-a4dd-c4a81deb7b96.jpg)
+The project is based on vite template [TheSwordBreaker/vite-reactts-eslint-prettier](https://github.com/TheSwordBreaker/vite-reactts-eslint-prettier)
 
-If Everything is Good Then It Should Work, but let me new if something else happens
+Characters metadata from:
 
-Made with ❤️ by theSwordBreaker(we Destory all types of sword ⚡)
+- [https://github.com/lonqie/SchaleDB](https://github.com/lonqie/SchaleDB) / [https://schale.gg/](https://schale.gg/)
+
+# Copyright

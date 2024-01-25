@@ -735,7 +735,7 @@ const MomoTalk = () => {
                       <div className="relative h-[40px] w-[40px] shrink-0 overflow-hidden rounded-full">
                         <img
                           className="h-full w-full scale-[1.8] object-cover"
-                          src={`https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`}
+                          src={`https://schale.gg/images/student/icon/${currentStudent?.id}.webp`}
                           alt={currentStudent?.collection_texture}
                         />
                         <div

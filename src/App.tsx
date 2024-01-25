@@ -170,7 +170,7 @@ function App() {
                 delay: 0.3,
               },
             }}
-            className="fixed left-0 top-0 z-[999] flex h-screen w-screen items-center justify-center bg-white"
+            className="fixed left-0 top-0 z-[999] flex h-screen w-screen  items-center justify-center bg-white"
           >
             <span className="text-sm">资源加载中{preloadProgressPercent}%</span>
           </motion.div>

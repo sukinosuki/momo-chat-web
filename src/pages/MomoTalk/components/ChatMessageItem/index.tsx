@@ -57,11 +57,10 @@ const ChatMessageItem: React.FC<TProps> = (props) => {
   // 要显示的头像
   const messageAvatar = useMemo(() => {
     return isMsgFromMine
-      ? `https://schale.gg/images/student/icon/${authState?.user.collection_texture}.png`
+      ? `https://schale.gg/images/student/icon/${authState?.user.id}.webp`
       : isOne2OneChat
-      ? `https://schale.gg/images/student/icon/${currentStudent?.collection_texture}.png`
-      : `https://schale.gg/images/student/icon/${studentsChatMap[msg.from_sid!]
-          ?.collection_texture}.png`
+      ? `https://schale.gg/images/student/icon/${currentStudent?.id}.webp`
+      : `https://schale.gg/images/student/icon/${studentsChatMap[msg.from_sid!]?.id}.webp`
   }, [isMsgFromMine, isOne2OneChat, studentsChatMap])
 
   // 要显示的用户名
